@@ -1,11 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "gCCW3ERRXJEbHhieMaCB5CGK0Lgqo+GPfsimHEus8/nr/0PqKgh8P7SZTBVOta1mKJUo6FzoEtkc0hffbPzbIA==",
+  "dgSpecHash": "82joZUdwjG8=",
   "success": true,
-  "projectFilePath": "C:\\Users\\JAABUK\\Documents\\GitHub\\AutoCad-Plugin\\AutoCadPlugin\\AutoCadPlugin.csproj",
-  "expectedPackageFiles": [
-    "C:\\Users\\JAABUK\\.nuget\\packages\\microsoft.netframework.referenceassemblies\\1.0.3\\microsoft.netframework.referenceassemblies.1.0.3.nupkg.sha512",
-    "C:\\Users\\JAABUK\\.nuget\\packages\\microsoft.netframework.referenceassemblies.net48\\1.0.3\\microsoft.netframework.referenceassemblies.net48.1.0.3.nupkg.sha512"
-  ],
+  "projectFilePath": "C:\\Users\\JAABUK\\source\\repos\\AutocadPlugin\\AutocadPlugin\\AutocadPlugin.csproj",
+  "expectedPackageFiles": [],
   "logs": []
 }

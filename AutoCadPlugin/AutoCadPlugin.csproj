@@ -2,25 +2,27 @@
 
   <PropertyGroup>
     <TargetFramework>net48</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
   </PropertyGroup>
 
   <ItemGroup>
-    <Reference Include="AcCoreMgd">
-      <HintPath>C:\Users\JAABUK\Documents\ObjectARX SDK\ObjectARX_2021\inc\AcCoreMgd.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="AcDbMgd">
-      <HintPath>C:\Users\JAABUK\Documents\ObjectARX SDK\ObjectARX_2021\inc\AcDbMgd.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="AcMgd">
-      <HintPath>C:\Users\JAABUK\Documents\ObjectARX SDK\ObjectARX_2021\inc\AcMgd.dll</HintPath>
+    <Reference Include="accoremgd">
+      <HintPath>..\..\..\..\Documents\ObjectARX SDK\ObjectARX_2021\inc\AcCoreMgd.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="AcCui">
-      <HintPath>C:\Users\JAABUK\Documents\ObjectARX SDK\ObjectARX_2021\inc\AcCui.dll</HintPath>
+      <HintPath>..\..\..\..\Documents\ObjectARX SDK\ObjectARX_2021\inc\AcCui.dll</HintPath>
       <Private>False</Private>
-    </Reference> 
+    </Reference>
+    <Reference Include="Acdbmgd">
+      <HintPath>..\..\..\..\Documents\ObjectARX SDK\ObjectARX_2021\inc\AcDbMgd.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="acmgd">
+      <HintPath>..\..\..\..\Documents\ObjectARX SDK\ObjectARX_2021\inc\AcMgd.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
   </ItemGroup>
 
 </Project>

@@ -1,25 +1,31 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\JAABUK\\Documents\\GitHub\\AutoCad-Plugin\\AutoCadPlugin\\AutoCadPlugin.csproj": {}
+    "C:\\Users\\JAABUK\\source\\repos\\AutocadPlugin\\AutocadPlugin\\AutocadPlugin.csproj": {}
   },
   "projects": {
-    "C:\\Users\\JAABUK\\Documents\\GitHub\\AutoCad-Plugin\\AutoCadPlugin\\AutoCadPlugin.csproj": {
+    "C:\\Users\\JAABUK\\source\\repos\\AutocadPlugin\\AutocadPlugin\\AutocadPlugin.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\JAABUK\\Documents\\GitHub\\AutoCad-Plugin\\AutoCadPlugin\\AutoCadPlugin.csproj",
-        "projectName": "AutoCadPlugin",
-        "projectPath": "C:\\Users\\JAABUK\\Documents\\GitHub\\AutoCad-Plugin\\AutoCadPlugin\\AutoCadPlugin.csproj",
+        "projectUniqueName": "C:\\Users\\JAABUK\\source\\repos\\AutocadPlugin\\AutocadPlugin\\AutocadPlugin.csproj",
+        "projectName": "AutocadPlugin",
+        "projectPath": "C:\\Users\\JAABUK\\source\\repos\\AutocadPlugin\\AutocadPlugin\\AutocadPlugin.csproj",
         "packagesPath": "C:\\Users\\JAABUK\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\JAABUK\\Documents\\GitHub\\AutoCad-Plugin\\AutoCadPlugin\\obj\\",
+        "outputPath": "C:\\Users\\JAABUK\\source\\repos\\AutocadPlugin\\AutocadPlugin\\obj\\",
         "projectStyle": "PackageReference",
+        "fallbackFolders": [
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+        ],
         "configFilePaths": [
-          "C:\\Users\\JAABUK\\AppData\\Roaming\\NuGet\\NuGet.Config"
+          "C:\\Users\\JAABUK\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
         ],
         "originalTargetFrameworks": [
           "net48"
         ],
         "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
           "https://api.nuget.org/v3/index.json": {}
         },
         "frameworks": {
@@ -32,20 +38,18 @@
           "warnAsError": [
             "NU1605"
           ]
-        }
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "9.0.200"
       },
       "frameworks": {
         "net48": {
           "targetAlias": "net48",
-          "dependencies": {
-            "Microsoft.NETFramework.ReferenceAssemblies": {
-              "suppressParent": "All",
-              "target": "Package",
-              "version": "[1.0.3, )",
-              "autoReferenced": true
-            }
-          },
-          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.101\\RuntimeIdentifierGraph.json"
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.203\\RuntimeIdentifierGraph.json"
         }
       }
     }

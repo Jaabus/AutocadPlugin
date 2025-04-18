@@ -1,6 +1,6 @@
 is_global = true
 build_property.RootNamespace = AutocadPlugin
-build_property.ProjectDir = C:\Users\JAABUK\source\repos\AutocadPlugin\AutocadPlugin\
+build_property.ProjectDir = C:\Users\JAABUK\source\repos\AutocadPlugin\AutocadPlugin\AutocadPlugin\
 build_property.EnableComHosting = 
 build_property.EnableGeneratedComInterfaceComImportInterop = 
 build_property.CsWinRTUseWindowsUIXamlProjections = false

@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("AutoCadPlugin")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+56e6def3e2999a5fba65337df0fbdca64fc188f6")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+ff2eb781542705a353a650f6f3e1e1ea7844460a")]
 [assembly: System.Reflection.AssemblyProductAttribute("AutoCadPlugin")]
 [assembly: System.Reflection.AssemblyTitleAttribute("AutoCadPlugin")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

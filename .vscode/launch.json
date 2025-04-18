@@ -2,11 +2,16 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Attach to AutoCAD",
+      "name": "Launch or Attach to AutoCAD",
       "type": "coreclr",
-      "request": "attach",
-      "processId": "${command:pickProcess}",
-      "justMyCode": false
+      "request": "launch",
+      "program": "C:\\Program Files\\Autodesk\\AutoCAD 2022\\acad.exe", // Path to AutoCAD executable
+      "args": [],
+      "cwd": "${workspaceFolder}",
+      "justMyCode": false,
+      "processId": "${command:pickProcess}", // Fallback to attach if AutoCAD is already running
+      "stopAtEntry": false,
+      "console": "internalConsole"
     }
   ]
 }

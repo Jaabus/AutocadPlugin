@@ -1,0 +1,15 @@
+C:\Users\JAABUK\source\repos\AutocadPlugin\AutocadPlugin\obj\Debug\net48\AutocadPlugin.csproj.AssemblyReference.cache
+C:\Users\JAABUK\source\repos\AutocadPlugin\AutocadPlugin\obj\Debug\net48\AutocadPlugin.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\JAABUK\source\repos\AutocadPlugin\AutocadPlugin\obj\Debug\net48\AutocadPlugin.AssemblyInfoInputs.cache
+C:\Users\JAABUK\source\repos\AutocadPlugin\AutocadPlugin\obj\Debug\net48\AutocadPlugin.AssemblyInfo.cs
+C:\Users\JAABUK\source\repos\AutocadPlugin\AutocadPlugin\obj\Debug\net48\AutocadPlugin.csproj.CoreCompileInputs.cache
+C:\Users\JAABUK\source\repos\AutocadPlugin\AutocadPlugin\obj\Debug\net48\AutocadPlugin.sourcelink.json
+C:\Users\JAABUK\source\repos\AutocadPlugin\AutocadPlugin\bin\Debug\net48\AutocadPlugin.dll
+C:\Users\JAABUK\source\repos\AutocadPlugin\AutocadPlugin\bin\Debug\net48\AutocadPlugin.pdb
+C:\Users\JAABUK\source\repos\AutocadPlugin\AutocadPlugin\obj\Debug\net48\AutocadPlugin.dll
+C:\Users\JAABUK\source\repos\AutocadPlugin\AutocadPlugin\obj\Debug\net48\AutocadPlugin.pdb
+C:\Users\JAABUK\source\repos\AutocadPlugin\AutocadPlugin\bin\Debug\net48\AutocadPlugin.dll.config
+C:\Users\JAABUK\source\repos\AutocadPlugin\AutocadPlugin\obj\Debug\net48\AutocadPlugin_MarkupCompile.cache
+C:\Users\JAABUK\source\repos\AutocadPlugin\AutocadPlugin\obj\Debug\net48\SignSelectorWPF.baml
+C:\Users\JAABUK\source\repos\AutocadPlugin\AutocadPlugin\obj\Debug\net48\SignSelectorWPF.g.cs
+C:\Users\JAABUK\source\repos\AutocadPlugin\AutocadPlugin\obj\Debug\net48\AutocadPlugin.g.resources

@@ -1,33 +1,47 @@
 using Autodesk.AutoCAD.Runtime;
-using Autodesk.AutoCAD.Customization;
-using System;
-using System.Linq;
-using System.Security.Cryptography;
+using Autodesk.AutoCAD.Windows;
+using System.Windows.Forms.Integration;
+using WF = System.Windows.Forms;
 
 namespace AutocadPlugin
 {
-  public class Commands
-  {
-    [CommandMethod("PS_Hello")]
-    public void Hello()
+    public class Commands
     {
-      var document =
-      Autodesk.AutoCAD.ApplicationServices.Application.DocumentManager.MdiActiveDocument;
-      var editor = document.Editor;
-      editor.WriteMessage("\nHello World!");
-    }
+        [CommandMethod("PS_Hello")]
+        public void Hello()
+        {
+            var document =
+            Autodesk.AutoCAD.ApplicationServices.Application.DocumentManager.MdiActiveDocument;
+            var editor = document.Editor;
+            editor.WriteMessage("\nHello World!");
+        }
 
-    [CommandMethod("PS_DrawToolbar")]
-    public void DrawToolbar()
-    {
-      CustomizationSection cs = new CustomizationSection();
-      Toolbar mainToolbar = new Toolbar("Main Toolbar", cs.MenuGroup);
-      mainToolbar.ElementID = "EID_MainToolbar";
-      mainToolbar.ToolbarOrient = ToolbarOrient.floating;
-      mainToolbar.ToolbarVisible = ToolbarVisible.show;
+        private PaletteSet _paletteSet;
 
-      ToolbarButton button1 = new ToolbarButton(mainToolbar, 1);
-      button1.MacroID = "ID_Pline";
+        [CommandMethod("PS_DrawGUI")]
+        public void DrawGUI()
+        {
+            if (_paletteSet == null)
+            {
+                // Create a new PaletteSet
+                _paletteSet = new PaletteSet("MainPalette")
+                {
+                    Size = new System.Drawing.Size(300, 200)
+                };
+
+                // Add control to PaletteSet
+                var signSelector = new SignSelectorWPF();
+                var host = new ElementHost
+                {
+                    Dock = WF.DockStyle.Fill,
+                    Child = signSelector
+                };
+
+                _paletteSet.Add("Sign Selector", host);
+            }
+
+            // Show the PaletteSet
+            _paletteSet.Visible = true;
+        }
     }
-  }
 }

@@ -2,9 +2,17 @@
 
   <PropertyGroup>
     <TargetFramework>net48</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Remove="SignSelectorWPF.xaml" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Page Include="SignSelectorWPF.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+  </ItemGroup>
 
   <ItemGroup>
     <Reference Include="accoremgd">
@@ -23,6 +31,16 @@
       <HintPath>..\..\..\..\Documents\ObjectARX SDK\ObjectARX_2021\inc\AcMgd.dll</HintPath>
       <Private>False</Private>
     </Reference>
+    <Reference Include="AcWindows">
+      <HintPath>..\..\..\..\Documents\ObjectARX SDK\ObjectARX_2021\inc\AcWindows.dll</HintPath>
+	  <Private>False</Private>
+    </Reference>
+    <Reference Include="PresentationCore" />
+    <Reference Include="PresentationFramework" />
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Xaml" />
+    <Reference Include="WindowsBase" />
+    <Reference Include="WindowsFormsIntegration" />
   </ItemGroup>
 
 </Project>

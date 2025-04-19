@@ -14,11 +14,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\JAABUK\\source\\repos\\AutocadPlugin\\AutocadPlugin\\AutocadPlugin\\AutocadPlugin.csproj",
+      "projectUniqueName": "C:\\Users\\JAABUK\\source\\repos\\AutocadPlugin\\AutocadPlugin\\AutocadPlugin.csproj",
       "projectName": "AutocadPlugin",
-      "projectPath": "C:\\Users\\JAABUK\\source\\repos\\AutocadPlugin\\AutocadPlugin\\AutocadPlugin\\AutocadPlugin.csproj",
+      "projectPath": "C:\\Users\\JAABUK\\source\\repos\\AutocadPlugin\\AutocadPlugin\\AutocadPlugin.csproj",
       "packagesPath": "C:\\Users\\JAABUK\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\JAABUK\\source\\repos\\AutocadPlugin\\AutocadPlugin\\AutocadPlugin\\obj\\",
+      "outputPath": "C:\\Users\\JAABUK\\source\\repos\\AutocadPlugin\\AutocadPlugin\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
         "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"

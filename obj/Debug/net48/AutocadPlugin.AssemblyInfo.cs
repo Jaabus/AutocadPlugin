@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("AutocadPlugin")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+3fd21d4937d219fa4c455676423e4db9a9e28464")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+744211c679d241ea0ab7a2534540e32848d4e292")]
 [assembly: System.Reflection.AssemblyProductAttribute("AutocadPlugin")]
 [assembly: System.Reflection.AssemblyTitleAttribute("AutocadPlugin")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

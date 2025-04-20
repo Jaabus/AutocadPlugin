@@ -60,8 +60,33 @@ namespace AutocadPlugin
                     string[] dwgFiles = Directory.GetFiles(selectedFolder, "*.dwg");
                     foreach (string file in dwgFiles)
                     {
-                        SignsComboBox.Items.Add(Path.GetFileName(file)); // Add just the file name
+                        ComboBoxItem signItem = new ComboBoxItem
+                        {
+                            Content = Path.GetFileName(file), // Display just the file name
+                            Tag = file // Store the full path in the Tag property
+                        };
+                        SignsComboBox.Items.Add(signItem);
                     }
+                }
+            }
+        }
+
+        private void InsertSignButton_Click(object sender, RoutedEventArgs e)
+        {
+            // Get the selected sign from the second ComboBox
+            ComboBoxItem selectedSignItem = SignsComboBox.SelectedItem as ComboBoxItem;
+            if (selectedSignItem != null)
+            {
+                string selectedSignPath = selectedSignItem.Tag as string; // Retrieve the full path from the Tag
+                if (!string.IsNullOrEmpty(selectedSignPath) && File.Exists(selectedSignPath))
+                {
+                    // Call the InsertSign method from Commands class
+                    Commands commands = new Commands();
+                    commands.InsertSign(selectedSignPath);
+                }
+                else
+                {
+                    MessageBox.Show($"The file {selectedSignPath} does not exist.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 }
             }
         }

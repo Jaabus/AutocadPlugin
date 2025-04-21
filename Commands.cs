@@ -1,11 +1,12 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Windows.Forms.Integration;
 using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.Geometry;
-using Autodesk.AutoCAD.GraphicsInterface;
 using Autodesk.AutoCAD.Runtime;
 using Autodesk.AutoCAD.Windows;
-using System;
-using System.Windows.Forms.Integration;
 using WF = System.Windows.Forms;
 
 namespace AutocadPlugin
@@ -72,13 +73,51 @@ namespace AutocadPlugin
                         BlockTableRecord modelSpace = (BlockTableRecord)transaction.GetObject(blockTable[BlockTableRecord.ModelSpace], OpenMode.ForWrite);
 
                         // Insert the DWG as a block
-                        ObjectId blockId = targetDb.Insert("InsertedBlock", signDb, false);
+                        ObjectId blockId = targetDb.Insert(Path.GetFileName(signPath), signDb, false);
 
                         // Create a block reference
                         using (BlockReference blockRef = new BlockReference(Point3d.Origin, blockId))
                         {
                             modelSpace.AppendEntity(blockRef);
                             transaction.AddNewlyCreatedDBObject(blockRef, true);
+
+                            // Retrieve the block definition
+                            BlockTableRecord blockDef = (BlockTableRecord)transaction.GetObject(blockId, OpenMode.ForRead);
+
+                            // Collect attributes
+                            List<AttributeData> attributes = new List<AttributeData>();
+                            foreach (ObjectId attDefId in blockDef)
+                            {
+                                if (attDefId.ObjectClass == RXClass.GetClass(typeof(AttributeDefinition)))
+                                {
+                                    AttributeDefinition attDef = (AttributeDefinition)transaction.GetObject(attDefId, OpenMode.ForRead);
+                                    if (!attDef.Constant)
+                                    {
+                                        attributes.Add(new AttributeData
+                                        {
+                                            Tag = attDef.Tag,
+                                            Value = attDef.TextString,
+                                            AttributeDefinitionId = attDefId // Store the ObjectId
+                                        });
+                                    }
+                                }
+                            }
+
+                            // Open the modal window for editing attributes
+                            AttributeEditorWindow editorWindow = new AttributeEditorWindow(attributes);
+                            if (editorWindow.ShowDialog() == true)
+                            {
+                                // Apply updated attributes
+                                foreach (var attribute in editorWindow.Attributes)
+                                {
+                                    AttributeDefinition attDef = (AttributeDefinition)transaction.GetObject(attribute.AttributeDefinitionId, OpenMode.ForRead);
+                                    AttributeReference attRef = new AttributeReference();
+                                    attRef.SetAttributeFromBlock(attDef, blockRef.BlockTransform);
+                                    attRef.TextString = attribute.Value;
+                                    blockRef.AttributeCollection.AppendAttribute(attRef);
+                                    transaction.AddNewlyCreatedDBObject(attRef, true);
+                                }
+                            }
                         }
 
                         // Commit the transaction

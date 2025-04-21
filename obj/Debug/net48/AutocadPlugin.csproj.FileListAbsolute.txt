@@ -13,3 +13,5 @@ C:\Users\JAABUK\source\repos\AutocadPlugin\AutocadPlugin\obj\Debug\net48\Autocad
 C:\Users\JAABUK\source\repos\AutocadPlugin\AutocadPlugin\obj\Debug\net48\SignSelectorWPF.baml
 C:\Users\JAABUK\source\repos\AutocadPlugin\AutocadPlugin\obj\Debug\net48\SignSelectorWPF.g.cs
 C:\Users\JAABUK\source\repos\AutocadPlugin\AutocadPlugin\obj\Debug\net48\AutocadPlugin.g.resources
+C:\Users\JAABUK\source\repos\AutocadPlugin\AutocadPlugin\obj\Debug\net48\AttributeEditorWindow.baml
+C:\Users\JAABUK\source\repos\AutocadPlugin\AutocadPlugin\obj\Debug\net48\AttributeEditorWindow.g.cs

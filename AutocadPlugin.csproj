@@ -5,10 +5,14 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Remove="AttributeEditorWindow.xaml" />
     <None Remove="SignSelectorWPF.xaml" />
   </ItemGroup>
 
   <ItemGroup>
+    <Page Include="AttributeEditorWindow.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
     <Page Include="SignSelectorWPF.xaml">
       <Generator>MSBuild:Compile</Generator>
     </Page>

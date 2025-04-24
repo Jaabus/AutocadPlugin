@@ -31,13 +31,34 @@
       <HintPath>..\..\..\..\Documents\ObjectARX SDK\ObjectARX_2021\inc\AcDbMgd.dll</HintPath>
       <Private>False</Private>
     </Reference>
+    <Reference Include="AcDx">
+      <HintPath>..\..\..\..\Documents\ObjectARX SDK\ObjectARX_2021\inc\AcDx.dll</HintPath>
+    </Reference>
     <Reference Include="acmgd">
       <HintPath>..\..\..\..\Documents\ObjectARX SDK\ObjectARX_2021\inc\AcMgd.dll</HintPath>
       <Private>False</Private>
     </Reference>
+    <Reference Include="AcMr">
+      <HintPath>..\..\..\..\Documents\ObjectARX SDK\ObjectARX_2021\inc\AcMr.dll</HintPath>
+    </Reference>
+    <Reference Include="AcSeamless">
+      <HintPath>..\..\..\..\Documents\ObjectARX SDK\ObjectARX_2021\inc\AcSeamless.dll</HintPath>
+    </Reference>
+    <Reference Include="AcTcMgd">
+      <HintPath>..\..\..\..\Documents\ObjectARX SDK\ObjectARX_2021\inc\AcTcMgd.dll</HintPath>
+    </Reference>
     <Reference Include="AcWindows">
       <HintPath>..\..\..\..\Documents\ObjectARX SDK\ObjectARX_2021\inc\AcWindows.dll</HintPath>
 	  <Private>False</Private>
+    </Reference>
+    <Reference Include="AdUIMgd">
+      <HintPath>..\..\..\..\Documents\ObjectARX SDK\ObjectARX_2021\inc\AdUIMgd.dll</HintPath>
+    </Reference>
+    <Reference Include="AdUiPalettes">
+      <HintPath>..\..\..\..\Documents\ObjectARX SDK\ObjectARX_2021\inc\AdUiPalettes.dll</HintPath>
+    </Reference>
+    <Reference Include="AdWindows">
+      <HintPath>..\..\..\..\Documents\ObjectARX SDK\ObjectARX_2021\inc\AdWindows.dll</HintPath>
     </Reference>
     <Reference Include="PresentationCore" />
     <Reference Include="PresentationFramework" />

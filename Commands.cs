@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Windows.Forms.Integration;
 using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.DatabaseServices;
@@ -97,8 +98,16 @@ namespace AutocadPlugin
                     return;
                 }
 
+                // Get sign post rotation for sign
+                double signRotationInDegrees;
+                using (Transaction transaction = targetDb.TransactionManager.StartTransaction())
+                {
+                    signRotationInDegrees = GetObjectRotation(selectedSignPost.Value, transaction);
+                    transaction.Commit();
+                }
+
                 // Insert the sign and attach it to the sign post
-                InsertSignAtSignPost(signPath, targetDb, selectedSignPost.Value, signPointResult.Value);
+                InsertSignAtSignPost(signPath, targetDb, selectedSignPost.Value, signPointResult.Value, signRotationInDegrees);
             }
         }
 
@@ -182,7 +191,7 @@ namespace AutocadPlugin
             }
         }
 
-        private static void InsertSignAtSignPost(string signPath, Database targetDb, ObjectId signPostId, Point3d location)
+        private static void InsertSignAtSignPost(string signPath, Database targetDb, ObjectId signPostId, Point3d location, double angleInDegrees)
         {
             // Get document editor
             var document = Autodesk.AutoCAD.ApplicationServices.Application.DocumentManager.MdiActiveDocument;
@@ -209,6 +218,16 @@ namespace AutocadPlugin
                         // Insert the sign block near the sign post
                         modelSpace.AppendEntity(signRef);
                         transaction.AddNewlyCreatedDBObject(signRef, true);
+
+                        // Adjust the angle by subtracting 90 degrees for clockwise rotation
+                        angleInDegrees -= 180;
+                        // Ensure the angle stays within the range of 0 to 360 degrees
+                        if (angleInDegrees < 0)
+                        {
+                            angleInDegrees += 360;
+                        }
+                        // Apply angle to sign
+                        signRef.Rotation = angleInDegrees * (Math.PI / 180);
 
                         // Connect the sign to the sign post with a line
                         ConnectSignToSignPost(transaction, signRef, signPostId);
@@ -254,6 +273,9 @@ namespace AutocadPlugin
                                 }
                             }
                         }
+
+                        // Add sign ObjectId to sign post's list of attached signs
+                        AddSignToSignPostMapping(signPostId, blockId, transaction);
                     }
 
                     // Commit the transaction
@@ -312,6 +334,105 @@ namespace AutocadPlugin
             }
 
             return angleInDegrees;
+        }
+
+        private double GetObjectRotation(ObjectId objectId, Transaction transaction)
+        {
+            // Open the object for read
+            BlockReference blockRef = transaction.GetObject(objectId, OpenMode.ForRead) as BlockReference;
+
+            if (blockRef != null)
+            {
+                // Return the rotation in degrees (convert from radians)
+                return blockRef.Rotation * (180 / Math.PI);
+            }
+
+            throw new InvalidOperationException("The provided ObjectId is not a BlockReference or is invalid.");
+        }
+
+        private static void SaveSignPostMapping(ObjectId signPostId, List<ObjectId> attachedSigns, Transaction transaction)
+        {
+            // Serialize the list of attached sign ObjectIds into a string
+            string serializedData = string.Join(",", attachedSigns.Select(id => id.Handle.ToString()));
+
+            // Get the sign post object
+            DBObject signPost = transaction.GetObject(signPostId, OpenMode.ForWrite);
+
+            // Register the application name
+            RegisterApplicationName(signPost.Database, "SignPostMapping");
+
+            // Create a ResultBuffer to store the XData
+            using (ResultBuffer xdata = new ResultBuffer(
+                new TypedValue((int)DxfCode.ExtendedDataRegAppName, "SignPostMapping"),
+                new TypedValue((int)DxfCode.ExtendedDataAsciiString, serializedData)))
+            {
+                // Attach the XData to the sign post
+                signPost.XData = xdata;
+            }
+        }
+
+        private static List<ObjectId> LoadSignPostMapping(ObjectId signPostId, Transaction transaction)
+        {
+            // Get the sign post object
+            DBObject signPost = transaction.GetObject(signPostId, OpenMode.ForRead);
+
+            // Retrieve the XData
+            ResultBuffer xdata = signPost.XData;
+            if (xdata == null) return new List<ObjectId>();
+
+            // Parse the XData
+            TypedValue[] data = xdata.AsArray();
+            if (data.Length < 2 || data[0].Value.ToString() != "SignPostMapping") return new List<ObjectId>();
+
+            // Deserialize the attached sign ObjectIds
+            string serializedData = data[1].Value.ToString();
+            return serializedData.Split(',')
+                .Select(handle => GetObjectIdFromHandle(signPost.Database, handle))
+                .Where(id => id != ObjectId.Null)
+                .ToList();
+        }
+
+        private static void AddSignToSignPostMapping(ObjectId signPostId, ObjectId signId, Transaction transaction)
+        {
+            // Get already attached sign Ids
+            List<ObjectId> attachedSigns = LoadSignPostMapping(signPostId, transaction);
+
+            // Add new sign to attached signs list
+            attachedSigns.Add(signId);
+
+            // Save list with added sign to sign post
+            SaveSignPostMapping(signPostId, attachedSigns, transaction);
+        }
+
+        private static void RegisterApplicationName(Database db, string appName)
+        {
+            using (Transaction transaction = db.TransactionManager.StartTransaction())
+            {
+                // Get the RegAppTable
+                RegAppTable regAppTable = (RegAppTable)transaction.GetObject(db.RegAppTableId, OpenMode.ForRead);
+
+                // Check if the application name is already registered
+                if (!regAppTable.Has(appName))
+                {
+                    // Register the application name
+                    regAppTable.UpgradeOpen();
+                    RegAppTableRecord regAppRecord = new RegAppTableRecord
+                    {
+                        Name = appName
+                    };
+                    regAppTable.Add(regAppRecord);
+                    transaction.AddNewlyCreatedDBObject(regAppRecord, true);
+                }
+
+                transaction.Commit();
+            }
+        }
+
+        private static ObjectId GetObjectIdFromHandle(Database db, string handleString)
+        {
+            Handle handle = new Handle(Convert.ToInt64(handleString, 16));
+            ObjectId id = db.GetObjectId(false, handle, 0);
+            return id;
         }
     }
 }

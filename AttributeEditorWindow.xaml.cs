@@ -22,7 +22,7 @@ namespace AutocadPlugin
     }
 
     public class AttributeData
-    {
+    {                                               
         public string Tag { get; set; }
         public string Value { get; set; }
         public ObjectId AttributeDefinitionId { get; set; } // Store the ObjectId of the AttributeDefinition

@@ -81,7 +81,7 @@ namespace AutocadPlugin
                 {
                     // Call the InsertSign method from Commands class
                     Commands commands = new Commands();
-                    commands.InsertSign(selectedSignPath);
+                    commands.InsertSignButton(selectedSignPath);
                 }
                 else
                 {

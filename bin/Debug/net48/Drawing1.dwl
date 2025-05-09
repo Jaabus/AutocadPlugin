@@ -1,3 +1,0 @@
-JAABUK
-DESKTOP-F1BNSJQ 
-kolmapäev, 23. aprill 2025  18:46:37

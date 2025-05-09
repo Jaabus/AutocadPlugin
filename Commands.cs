@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Windows.Documents;
 using System.Windows.Forms.Integration;
 using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.DatabaseServices;
@@ -63,51 +64,162 @@ namespace AutocadPlugin
             // Lock the document for editing
             using (DocumentLock docLock = document.LockDocument())
             {
-                // Check if a sign post block is selected; if not, create a new post
+                // Check if a sign post block is selected; if yes, place sign at bottom/top of existing sings; if not, create a new post and attach sign;
                 ObjectId? selectedSignPost = GetSelectedSignPost(editor);
-                if (selectedSignPost == null)
+                if (selectedSignPost != null)
                 {
-                    // Prompt user to specify a location for a new sign post
-                    PromptPointResult signPostPointResult = editor.GetPoint("\nSpecify location for the new sign post:");
-                    if (signPostPointResult.Status != PromptStatus.OK)
+                    AddSignToSignPost(signPath, editor, targetDb, (ObjectId)selectedSignPost);
+                }
+                else
+                {
+                    InsertSignPostAndSign(signPath, editor, targetDb);
+                }
+            }
+        }
+
+        private void InsertSignPostAndSign(string signPath, Editor editor, Database targetDb)
+        {
+            // Prompt user to specify a location for a new sign post
+            PromptPointResult signPostPointResult = editor.GetPoint("\nSpecify location for the new sign post:");
+            if (signPostPointResult.Status != PromptStatus.OK)
+            {
+                editor.WriteMessage("\nOperation canceled.");
+                return;
+            }
+
+            // Prompt user to specify a second location to calculate rotation
+            PromptPointResult rotationPointResult = editor.GetPoint("\nSpecify sign post rotation:");
+            if (signPostPointResult.Status != PromptStatus.OK)
+            {
+                editor.WriteMessage("\nOperation canceled.");
+                return;
+            }
+            // Calculate the rotation angle
+            double rotationInDegrees = CalculateRotationAngle(signPostPointResult.Value, rotationPointResult.Value);
+
+            // Insert a new sign post block at the specified location
+            string signPostPath = @"C:\Users\JAABUK\Desktop\prog\EESTI\Märkide elemendid\Silt.dwg";
+            ObjectId selectedSignPost = InsertSignPostBlock(targetDb, signPostPath, signPostPointResult.Value, rotationInDegrees);
+
+            // Prompt user to specify a location for a new sign
+            PromptPointResult signPointResult = editor.GetPoint("\nSpecify location for the new sign:");
+
+
+            if (signPointResult.Status != PromptStatus.OK)
+            {
+                editor.WriteMessage("\nOperation canceled.");
+                return;
+            }
+
+            // Get sign post rotation for sign
+            double signRotationInDegrees;
+            using (Transaction transaction = targetDb.TransactionManager.StartTransaction())
+            {
+                signRotationInDegrees = GetObjectRotation(selectedSignPost, transaction);
+                transaction.Commit();
+            }
+
+            // Insert the sign and attach it to the sign post
+            ObjectId signBlockId = InsertSignAtSignPost(signPath, targetDb, selectedSignPost, signPointResult.Value, signRotationInDegrees);
+
+            // Connect sign to sign post with line
+            using (Transaction transaction = targetDb.TransactionManager.StartTransaction())
+            {
+                ConnectSignToSignPost(transaction, signBlockId, selectedSignPost);
+                transaction.Commit();
+            }
+        }
+
+        private void AddSignToSignPost(string signPath, Editor editor, Database targetDb, ObjectId signPostId)
+        {
+            // Prompt user to specify whether to add sign to top of bottom of existing signs 
+            PromptKeywordOptions options = new PromptKeywordOptions("\nDo you want to add the sign to the [Higher/Lower] position?")
+            {
+                AllowNone = false // Force the user to select one of the options
+            };
+
+            // Add keywords for "Higher" and "Lower"
+            options.Keywords.Add("Higher");
+            options.Keywords.Add("Lower");
+
+            // Set the default keyword
+            options.Keywords.Default = "Higher";
+             
+            // Prompt the user
+            PromptResult result = editor.GetKeywords(options);
+
+            // Check the result
+            if (result.Status != PromptStatus.OK)
+            {
+                editor.WriteMessage("\nOperation canceled.");
+                return; // Return null if the user cancels
+            }
+
+            using (Transaction transaction = targetDb.TransactionManager.StartTransaction())
+            {
+                // If user selected higher, insert sign on top of existing signs
+                if (result.StringResult == "Higher")
+                {
+                    // Get the highest sign
+                    ObjectId highestSign = FindHighestAttachedSign(signPostId, transaction);
+
+                    // Get top middle point of highest sign
+                    (Point3d middleBottom, Point3d middleTop) = GetMiddlePoints(highestSign, transaction);
+
+                    // Get angle of highest sign
+                    double signAngle = GetObjectRotation(highestSign, transaction);
+
+                    // Adjust the angle by subtracting 90 degrees for clockwise rotation
+                    signAngle -= 180;
+                    // Ensure the angle stays within the range of 0 to 360 degrees
+                    if (signAngle < 0)
                     {
-                        editor.WriteMessage("\nOperation canceled.");
-                        return;
+                        signAngle += 360;
                     }
 
-                    // Prompt user to specify a second location to calculate rotation
-                    PromptPointResult rotationPointResult = editor.GetPoint("\nSpecify sign post rotation:");
-                    if (signPostPointResult.Status != PromptStatus.OK)
+                    // Insert new sign at top middle point and adjust rotation
+                    InsertSignAtSignPost(signPath, targetDb, signPostId, middleTop, signAngle);
+                }
+                else if (result.StringResult == "Lower")
+                {
+                    // Get the lowest sign
+                    ObjectId lowestSign = FindLowestAttachedSign(signPostId, transaction);
+
+                    // Get bottom middle point of lowest sign
+                    (Point3d middleBottom, Point3d middleTop) = GetMiddlePoints(lowestSign, transaction);
+
+                    // Get angle of lowest sign
+                    double signAngle = GetObjectRotation(lowestSign, transaction);
+
+                    // Adjust the angle by subtracting 90 degrees for clockwise rotation
+                    signAngle -= 180;
+                    // Ensure the angle stays within the range of 0 to 360 degrees
+                    if (signAngle < 0)
                     {
-                        editor.WriteMessage("\nOperation canceled.");
-                        return;
+                        signAngle += 360;
                     }
-                    // Calculate the rotation angle
-                    double rotationInDegrees = CalculateRotationAngle(signPostPointResult.Value, rotationPointResult.Value);
 
-                    // Insert a new sign post block at the specified location
-                    string signPostPath = @"C:\Users\JAABUK\Desktop\prog\EESTI\Märkide elemendid\Silt.dwg";
-                    selectedSignPost = InsertSignPostBlock(targetDb, signPostPath, signPostPointResult.Value, rotationInDegrees);
+                    // Insert new sign at bottom middle point
+                    ObjectId newSignId = InsertSignAtSignPost(signPath, targetDb, signPostId, middleBottom, signAngle);
+
+                    // Move the new sign so its "CON" tag aligns with the insertion point
+                    using (Transaction moveTransaction = targetDb.TransactionManager.StartTransaction())
+                    {
+                        BlockReference newSignRef = moveTransaction.GetObject(newSignId, OpenMode.ForWrite) as BlockReference;
+
+                        // Get the "CON" tag position of the new sign
+                        Point3d conTagPosition = GetConTagPosition(newSignRef, moveTransaction);
+
+                        // Calculate the offset to move the "CON" tag to the desired insertion point
+                        Vector3d offset = middleBottom.GetVectorTo(conTagPosition);
+
+                        // Apply the offset to the new sign
+                        newSignRef.TransformBy(Matrix3d.Displacement(-offset));
+
+                        moveTransaction.Commit();
+                    }
                 }
-
-                // Prompt user to specify a location for a new sign
-                PromptPointResult signPointResult = editor.GetPoint("\nSpecify location for the new sign:");
-                if (signPointResult.Status != PromptStatus.OK)
-                {
-                    editor.WriteMessage("\nOperation canceled.");
-                    return;
-                }
-
-                // Get sign post rotation for sign
-                double signRotationInDegrees;
-                using (Transaction transaction = targetDb.TransactionManager.StartTransaction())
-                {
-                    signRotationInDegrees = GetObjectRotation(selectedSignPost.Value, transaction);
-                    transaction.Commit();
-                }
-
-                // Insert the sign and attach it to the sign post
-                InsertSignAtSignPost(signPath, targetDb, selectedSignPost.Value, signPointResult.Value, signRotationInDegrees);
+                transaction.Commit();
             }
         }
 
@@ -150,6 +262,7 @@ namespace AutocadPlugin
         {
             // Create a database for the sign post file
             Database signPostDb = new Database(false, true);
+            ObjectId SignPostId;
             try
             {
                 // Load the sign post DWG file
@@ -174,9 +287,10 @@ namespace AutocadPlugin
                         modelSpace.AppendEntity(blockRef);
                         transaction.AddNewlyCreatedDBObject(blockRef, true);
 
+                        SignPostId = blockRef.ObjectId;
+
                         // Commit the transaction
                         transaction.Commit();
-                        return blockRef.ObjectId;
                     }
                 }
             }
@@ -189,9 +303,10 @@ namespace AutocadPlugin
                 // Dispose of the sign post database
                 signPostDb.Dispose();
             }
+            return SignPostId;
         }
 
-        private static void InsertSignAtSignPost(string signPath, Database targetDb, ObjectId signPostId, Point3d location, double angleInDegrees)
+        private static ObjectId InsertSignAtSignPost(string signPath, Database targetDb, ObjectId signPostId, Point3d location, double angleInDegrees)
         {
             // Get document editor
             var document = Autodesk.AutoCAD.ApplicationServices.Application.DocumentManager.MdiActiveDocument;
@@ -199,6 +314,7 @@ namespace AutocadPlugin
 
             // Create a sign database and try to load the file
             Database signDb = new Database(false, true);
+            ObjectId signId;
             try
             {
                 signDb.ReadDwgFile(signPath, FileOpenMode.OpenForReadAndReadShare, true, null);
@@ -219,6 +335,8 @@ namespace AutocadPlugin
                         modelSpace.AppendEntity(signRef);
                         transaction.AddNewlyCreatedDBObject(signRef, true);
 
+                        signId = signRef.ObjectId;
+
                         // Adjust the angle by subtracting 90 degrees for clockwise rotation
                         angleInDegrees -= 180;
                         // Ensure the angle stays within the range of 0 to 360 degrees
@@ -229,35 +347,46 @@ namespace AutocadPlugin
                         // Apply angle to sign
                         signRef.Rotation = angleInDegrees * (Math.PI / 180);
 
-                        // Connect the sign to the sign post with a line
-                        ConnectSignToSignPost(transaction, signRef, signPostId);
-
                         // Retrieve the block definition
                         BlockTableRecord blockDef = (BlockTableRecord)transaction.GetObject(blockId, OpenMode.ForRead);
 
-                        // Collect attributes, except CON tag
-                        List<AttributeData> attributes = new List<AttributeData>();
+                        // Collect attributes, including CON tag for the block reference
+                        List<AttributeData> attributesForBlock = new List<AttributeData>();
+                        List<AttributeData> attributesForModal = new List<AttributeData>();
+
                         foreach (ObjectId attDefId in blockDef)
                         {
                             if (attDefId.ObjectClass == RXClass.GetClass(typeof(AttributeDefinition)))
                             {
                                 AttributeDefinition attDef = (AttributeDefinition)transaction.GetObject(attDefId, OpenMode.ForRead);
-                                if (!attDef.Constant && attDef.Tag != "CON")
+                                if (!attDef.Constant)
                                 {
-                                    attributes.Add(new AttributeData
+                                    // Add all attributes to the block reference
+                                    attributesForBlock.Add(new AttributeData
                                     {
                                         Tag = attDef.Tag,
                                         Value = attDef.TextString,
                                         AttributeDefinitionId = attDefId // Store the ObjectId
                                     });
+
+                                    // Exclude "CON" tag from the modal window
+                                    if (attDef.Tag != "CON")
+                                    {
+                                        attributesForModal.Add(new AttributeData
+                                        {
+                                            Tag = attDef.Tag,
+                                            Value = attDef.TextString,
+                                            AttributeDefinitionId = attDefId // Store the ObjectId
+                                        });
+                                    }
                                 }
                             }
                         }
 
-                        // Open the modal window for editing attributes if sign has attributes
-                        if (attributes.Count != 0)
+                        // Open the modal window for editing attributes, excluding "CON"
+                        if (attributesForModal.Count != 0)
                         {
-                            AttributeEditorWindow editorWindow = new AttributeEditorWindow(attributes);
+                            AttributeEditorWindow editorWindow = new AttributeEditorWindow(attributesForModal);
 
                             if (editorWindow.ShowDialog() == true)
                             {
@@ -274,8 +403,19 @@ namespace AutocadPlugin
                             }
                         }
 
+                        // Add all attributes (including "CON") to the block reference
+                        foreach (var attribute in attributesForBlock)
+                        {
+                            AttributeDefinition attDef = (AttributeDefinition)transaction.GetObject(attribute.AttributeDefinitionId, OpenMode.ForRead);
+                            AttributeReference attRef = new AttributeReference();
+                            attRef.SetAttributeFromBlock(attDef, signRef.BlockTransform);
+                            attRef.TextString = attribute.Value;
+                            signRef.AttributeCollection.AppendAttribute(attRef);
+                            transaction.AddNewlyCreatedDBObject(attRef, true);
+                        }
+
                         // Add sign ObjectId to sign post's list of attached signs
-                        AddSignToSignPostMapping(signPostId, blockId, transaction);
+                        AddSignToSignPostMapping(signPostId, signId, transaction);
                     }
 
                     // Commit the transaction
@@ -290,21 +430,22 @@ namespace AutocadPlugin
             {
                 signDb.Dispose();
             }
+            return signId;
         }
 
-        private static void ConnectSignToSignPost(Transaction transaction, BlockReference signRef, ObjectId signPostId)
+        private static void ConnectSignToSignPost(Transaction transaction, ObjectId signId, ObjectId signPostId)
         {
             // Get the position of the sign post
             Point3d signPostPosition = GetBlockReferencePosition(transaction, signPostId);
 
             // Get the position of the sign
-            Point3d signPosition = signRef.Position;
+            Point3d signPosition = GetBlockReferencePosition(transaction, signId);
 
             // Create a line to connect the sign and the sign post
             using (Line connectionLine = new Line(signPostPosition, signPosition))
             {
                 // Add the line to the model space
-                BlockTableRecord modelSpace = transaction.GetObject(signRef.BlockId.Database.CurrentSpaceId, OpenMode.ForWrite) as BlockTableRecord;
+                BlockTableRecord modelSpace = transaction.GetObject(signId.Database.CurrentSpaceId, OpenMode.ForWrite) as BlockTableRecord;
                 modelSpace.AppendEntity(connectionLine);
                 transaction.AddNewlyCreatedDBObject(connectionLine, true);
             }
@@ -394,6 +535,13 @@ namespace AutocadPlugin
 
         private static void AddSignToSignPostMapping(ObjectId signPostId, ObjectId signId, Transaction transaction)
         {
+            // Validate that the signId is a BlockReference
+            BlockReference blockRef = transaction.GetObject(signId, OpenMode.ForRead) as BlockReference;
+            if (blockRef == null)
+            {
+                throw new InvalidOperationException("Only BlockReference objects can be attached to a sign post.");
+            }
+
             // Get already attached sign Ids
             List<ObjectId> attachedSigns = LoadSignPostMapping(signPostId, transaction);
 
@@ -402,6 +550,23 @@ namespace AutocadPlugin
 
             // Save list with added sign to sign post
             SaveSignPostMapping(signPostId, attachedSigns, transaction);
+        }
+
+        private static void RemoveSignFromSignPostMapping(ObjectId signPostId, ObjectId signId, Transaction transaction)
+        {
+            // Get already attached sign Ids
+            List<ObjectId> attachedSigns = LoadSignPostMapping(signPostId, transaction);
+
+            // Chech if id is in signpost mapping; then remove
+            if (attachedSigns.Contains(signId))
+            {
+                attachedSigns.Remove(signId);
+                SaveSignPostMapping(signPostId, attachedSigns, transaction);
+            }
+            else
+            {
+                throw new InvalidOperationException("Sign Id not in attached sings list.");
+            }
         }
 
         private static void RegisterApplicationName(Database db, string appName)
@@ -433,6 +598,93 @@ namespace AutocadPlugin
             Handle handle = new Handle(Convert.ToInt64(handleString, 16));
             ObjectId id = db.GetObjectId(false, handle, 0);
             return id;
+        }
+
+        private static ObjectId FindLowestAttachedSign(ObjectId signPostId, Transaction transaction)
+        {
+            return FindSignByHeight(signPostId, transaction, true);
+        }
+
+        private static ObjectId FindHighestAttachedSign(ObjectId signPostId, Transaction transaction)
+        {
+            return FindSignByHeight(signPostId, transaction, false);
+        }
+
+        private static ObjectId FindSignByHeight(ObjectId signPostId, Transaction transaction, bool lowestSign)
+        {
+            // Get list of signs attached to sign post
+            List<ObjectId> attachedSigns = LoadSignPostMapping(signPostId, transaction);
+
+            // Loop through signs to store their heights in a dictionary
+            Dictionary<ObjectId, Double> signHeights = new Dictionary<ObjectId, double>();
+            foreach (ObjectId sign in attachedSigns){
+                if (sign.IsErased)
+                {
+                    RemoveSignFromSignPostMapping(signPostId, sign, transaction);
+                    continue;
+                }
+                BlockReference signRef = transaction.GetObject(sign, OpenMode.ForRead) as BlockReference;
+                Point3d signPosition = signRef.Position;
+                Double signHeight = signPosition.Y;
+                signHeights[sign] = signHeight;
+            }
+
+            // Return lowest/highest sign
+            if (lowestSign == true)
+            {
+                return signHeights.Aggregate((x, y) => x.Value < y.Value ? x : y).Key;
+            }
+            else
+            {
+                return signHeights.Aggregate((x, y) => x.Value > y.Value ? x : y).Key;
+            }
+        }
+
+        private (Point3d middleBottom, Point3d middleTop) GetMiddlePoints(ObjectId signId, Transaction transaction)
+        {
+            // Get the sign block reference
+            BlockReference signRef = transaction.GetObject(signId, OpenMode.ForRead) as BlockReference;
+
+            // Middle bottom is the origin point of the sign block
+            Point3d middleBottom = signRef.Position;
+
+            // Initialize the middle top point
+            Point3d middleTop = Point3d.Origin;
+
+            // Iterate through the attributes of the block reference
+            foreach (ObjectId attId in signRef.AttributeCollection)
+            {
+                AttributeReference attRef = transaction.GetObject(attId, OpenMode.ForRead) as AttributeReference;
+                var document =
+                Autodesk.AutoCAD.ApplicationServices.Application.DocumentManager.MdiActiveDocument;
+                var editor = document.Editor;
+                editor.WriteMessage("\n" + attRef.Tag);
+
+                // Check if the attribute tag matches "CON" (case-insensitive)
+                if (attRef != null && attRef.Tag.Equals("CON", StringComparison.OrdinalIgnoreCase))
+                {
+                    middleTop = attRef.Position;
+                    break;
+                }
+            }
+
+            return (middleBottom, middleTop);
+        }
+
+        private Point3d GetConTagPosition(BlockReference blockRef, Transaction transaction)
+        {
+            foreach (ObjectId attId in blockRef.AttributeCollection)
+            {
+                AttributeReference attRef = transaction.GetObject(attId, OpenMode.ForRead) as AttributeReference;
+
+                // Check if the attribute tag matches "CON" (case-insensitive)
+                if (attRef != null && attRef.Tag.Equals("CON", StringComparison.OrdinalIgnoreCase))
+                {
+                    return attRef.Position;
+                }
+            }
+
+            throw new InvalidOperationException("The block reference does not contain a 'CON' tag.");
         }
     }
 }

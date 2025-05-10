@@ -47,7 +47,7 @@ namespace AutocadPlugin
             }
         }
 
-        internal static (ObjectId blockRefId, ObjectId BlockDefId) InsertBlockFromDWG(Transaction transaction, Database targetDb, string DWGPath, Point3d location, double rotation)
+        internal static (ObjectId blockRefId, ObjectId BlockDefId) InsertBlockFromDWG(Transaction transaction, Database targetDb, string DWGPath, Point3d location, double rotation, double scaleFactor)
         {
             // Create a database for the DWG file
             Database sourceDb = new Database(false, true);
@@ -69,6 +69,9 @@ namespace AutocadPlugin
                 {
                     // Set the rotation of the block reference
                     blockRef.Rotation = rotation;
+
+                    // Set the scale of the block reference
+                    blockRef.ScaleFactors = new Scale3d(scaleFactor);
 
                     // Add the block reference to the model space
                     BlockTableRecord modelSpace = (BlockTableRecord)transaction.GetObject(blockTable[BlockTableRecord.ModelSpace], OpenMode.ForWrite);
@@ -133,6 +136,75 @@ namespace AutocadPlugin
                 throw new OperationCanceledException();
             }
             return result.Value;
+        }
+
+        internal static void StoreVariable(Transaction transaction, Database db, string key, string value)
+        {
+            // Access the NamedObjectsDictionary
+            DBDictionary namedObjectsDict = (DBDictionary)transaction.GetObject(db.NamedObjectsDictionaryId, OpenMode.ForRead);
+
+            // Check if a custom dictionary for storing variables exists
+            const string customDictName = "CustomVariables";
+            DBDictionary customDict;
+
+            if (!namedObjectsDict.Contains(customDictName))
+            {
+                // Create the custom dictionary if it doesn't exist
+                namedObjectsDict.UpgradeOpen();
+                customDict = new DBDictionary();
+                namedObjectsDict.SetAt(customDictName, customDict);
+                transaction.AddNewlyCreatedDBObject(customDict, true);
+            }
+            else
+            {
+                // Retrieve the existing custom dictionary
+                customDict = (DBDictionary)transaction.GetObject(namedObjectsDict.GetAt(customDictName), OpenMode.ForWrite);
+            }
+
+            // Check if the key already exists
+            if (customDict.Contains(key))
+            {
+                // Update the existing XRecord
+                Xrecord xRecord = (Xrecord)transaction.GetObject(customDict.GetAt(key), OpenMode.ForWrite);
+                xRecord.Data = new ResultBuffer(new TypedValue((int)DxfCode.Text, value));
+            }
+            else
+            {
+                // Create a new XRecord to store the value
+                Xrecord xRecord = new Xrecord
+                {
+                    Data = new ResultBuffer(new TypedValue((int)DxfCode.Text, value))
+                };
+                customDict.SetAt(key, xRecord);
+                transaction.AddNewlyCreatedDBObject(xRecord, true);
+            }
+        }
+
+        internal static string RetrieveVariable(Transaction transaction, Database db, string key)
+        {
+            // Access the NamedObjectsDictionary
+            DBDictionary namedObjectsDict = (DBDictionary)transaction.GetObject(db.NamedObjectsDictionaryId, OpenMode.ForRead);
+
+            const string customDictName = "CustomVariables";
+
+            // Check if the custom dictionary exists
+            if (namedObjectsDict.Contains(customDictName))
+            {
+                DBDictionary customDict = (DBDictionary)transaction.GetObject(namedObjectsDict.GetAt(customDictName), OpenMode.ForRead);
+
+                // Check if the key exists in the custom dictionary
+                if (customDict.Contains(key))
+                {
+                    Xrecord xRecord = (Xrecord)transaction.GetObject(customDict.GetAt(key), OpenMode.ForRead);
+                    TypedValue[] data = xRecord.Data.AsArray();
+
+                    // Return the stored value
+                    return data[0].Value.ToString();
+                }
+            }
+
+            // Return null if the key does not exist
+            return null;
         }
     }
 }

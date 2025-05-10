@@ -21,11 +21,11 @@ namespace AutocadPlugin
                 };
 
                 // Add control to PaletteSet
-                var signSelector = new SignSelectorWPF();
+                var mainGUI = new MainGUI();
                 var host = new ElementHost
                 {
                     Dock = WF.DockStyle.Fill,
-                    Child = signSelector
+                    Child = mainGUI
                 };
 
                 _paletteSet.Add("Sign Selector", host);
@@ -33,6 +33,29 @@ namespace AutocadPlugin
 
             // Show the PaletteSet
             _paletteSet.Visible = true;
+        }
+
+        [CommandMethod("PS_ResetGUI")]
+
+        public static void ResetGUI()
+        {
+            if (_paletteSet != null)
+            {
+                bool wasVisible = _paletteSet.Visible;
+
+                _paletteSet.Visible = false;
+                _paletteSet.Dispose();
+                _paletteSet = null;
+
+                // Recreate the PaletteSet
+                DrawGUI();
+
+                // Restore visibility state
+                if (!wasVisible)
+                {
+                    _paletteSet.Visible = false;
+                }
+            }
         }
     }
 }

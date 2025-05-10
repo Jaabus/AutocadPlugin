@@ -1,0 +1,28 @@
+<UserControl x:Class="AutocadPlugin.SignSelectorGUI"
+  xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"  
+  xmlns:controls="clr-namespace:System.Windows.Controls;assembly=PresentationFramework">
+    <StackPanel Orientation="Vertical">
+        <Grid>
+        <!-- First ComboBox for Sign Folder Selection -->
+        <ComboBox x:Name="SignDirectoryComboBox" Width="200" Height="30" VerticalAlignment="Top" Margin="10"
+                  SelectionChanged="SignDirectoryComboBox_SelectionChanged" />
+        <!-- Second ComboBox for .dwg Files -->
+        <ComboBox x:Name="SignsComboBox" Width="200" Height="30" VerticalAlignment="Top" Margin="10,50,10,10" />
+        <!-- Button to insert sign -->
+        <Button x:Name="InsertSignButton" Width="100" Height="30" VerticalAlignment="Top" Margin="10,100,10,10" Content="Insert Sign" Click="InsertSignButton_Click" />
+        </Grid>
+        <Grid HorizontalAlignment="Center">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="100" />
+                <ColumnDefinition Width="100" />
+            </Grid.ColumnDefinitions>
+            <!-- Label for Sign Scale -->
+            <Label Content="Sign Scale:" Grid.Column="0" HorizontalAlignment="Left" VerticalAlignment="Top" />
+            <TextBox x:Name="SignScale" Grid.Column="0" Margin="0,20,20,0" PreviewTextInput="Scale_PreviewTextInput" LostKeyboardFocus="Scale_LostFocus" />
+            <!-- Label for Sign Post Scale -->
+            <Label Content="Sign Post Scale:" Grid.Column="1" HorizontalAlignment="Left" VerticalAlignment="Top" />
+            <TextBox x:Name="SignPostScale" Grid.Column="1" Margin="0,20,20,0" PreviewTextInput="Scale_PreviewTextInput" LostKeyboardFocus="Scale_LostFocus" />
+        </Grid>
+    </StackPanel>
+</UserControl>

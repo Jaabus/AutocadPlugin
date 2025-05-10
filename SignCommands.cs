@@ -64,9 +64,18 @@ namespace AutocadPlugin
             // Adjust rotation by 90 degrees anticlockwise to be more intuitive
             signPostRotation = signPostRotation + (Math.PI / 2);
 
+            // Get sign post scale factor from user preferences
+            string signPostScaleString = RetrieveVariable(transaction, targetDb, "SignPostScale");
+            if (string.IsNullOrEmpty(signPostScaleString))
+            {
+                // If no scale is set, use the default value
+                signPostScaleString = Constants.defaultSignPostScale;
+            }
+            double signPostScale = Convert.ToDouble(signPostScaleString);
+
             // Insert a new sign post block at the specified location
             string signPostPath = @"C:\Users\JAABUK\Desktop\prog\EESTI\Märkide elemendid\Silt.dwg";
-            (ObjectId signPostRefId, ObjectId signPostDefId) = InsertBlockFromDWG(transaction, targetDb, signPostPath, signPostLocation, signPostRotation);
+            (ObjectId signPostRefId, ObjectId signPostDefId) = InsertBlockFromDWG(transaction, targetDb, signPostPath, signPostLocation, signPostRotation, signPostScale);
 
             // Prompt user to specify a location for a new sign
             Point3d signLocation = PromptPoint(editor, new PromptPointOptions("\nSpecify location for the new sign:"));
@@ -182,8 +191,17 @@ namespace AutocadPlugin
 
         private static ObjectId InsertSign(Transaction transaction, string signPath, Database targetDb, Point3d location, double rotation)
         {
+            // Get sign post scale factor from user preferences
+            string signScaleString = RetrieveVariable(transaction, targetDb, "SignScale");
+            if (string.IsNullOrEmpty(signScaleString))
+            {
+                // If no scale is set, use the default value
+                signScaleString = Constants.defaultSignScale;
+            }
+            double signScale = Convert.ToDouble(signScaleString);
+
             // Insert sign from DWG
-            (ObjectId signRefId, ObjectId signDefId) = InsertBlockFromDWG(transaction, targetDb, signPath, location, rotation);
+            (ObjectId signRefId, ObjectId signDefId) = InsertBlockFromDWG(transaction, targetDb, signPath, location, rotation, signScale);
 
             // Collect sign attributes, including CON tag for the block reference
             List<AttributeData> attributesForBlock = new List<AttributeData>();

@@ -6,14 +6,21 @@
 
   <ItemGroup>
     <None Remove="AttributeEditorWindow.xaml" />
-    <None Remove="SignSelectorWPF.xaml" />
+    <None Remove="MainGUI.xaml" />
+    <None Remove="RoadMarkingsGUI.xaml" />
   </ItemGroup>
 
   <ItemGroup>
     <Page Include="AttributeEditorWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
     </Page>
-    <Page Include="SignSelectorWPF.xaml">
+    <Page Include="MainGUI.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="RoadMarkingsGUI.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="SignSelectorGUI.xaml">
       <Generator>MSBuild:Compile</Generator>
     </Page>
   </ItemGroup>

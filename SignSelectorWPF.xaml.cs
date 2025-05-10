@@ -80,8 +80,7 @@ namespace AutocadPlugin
                 if (!string.IsNullOrEmpty(selectedSignPath) && File.Exists(selectedSignPath))
                 {
                     // Call the InsertSign method from Commands class
-                    Commands commands = new Commands();
-                    commands.InsertSignButton(selectedSignPath);
+                    SignCommands.InsertSignButton(selectedSignPath);
                 }
                 else
                 {

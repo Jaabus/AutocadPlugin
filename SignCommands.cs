@@ -5,6 +5,7 @@ using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.EditorInput;
 using Autodesk.AutoCAD.Geometry;
+using Autodesk.AutoCAD.GraphicsInterface;
 using Autodesk.AutoCAD.Runtime;
 using static AutocadPlugin.CommandUtilites;
 
@@ -51,43 +52,68 @@ namespace AutocadPlugin
             // Prompt user to specify a location for a new sign post
             Point3d signPostLocation = PromptPoint(editor, new PromptPointOptions("\nSpecify location for the new sign post:"));
 
-            // Prompt user to specify an angle for sign post rotation
-            PromptAngleOptions promtSignPostRotationOptions = new PromptAngleOptions("\nSpecify rotation for the new sign post:")
-            {
-                DefaultValue = 0,
-                BasePoint = signPostLocation,
-                UseBasePoint = true,
-                UseDefaultValue = true,
-            };
-            double signPostRotation = PromtAngle(editor, promtSignPostRotationOptions);
-
-            // Adjust rotation by 90 degrees anticlockwise to be more intuitive
-            signPostRotation = signPostRotation + (Math.PI / 2);
-
-            // Get sign post scale factor from user preferences
-            string signPostScaleString = RetrieveVariable(transaction, targetDb, "SignPostScale");
-            if (string.IsNullOrEmpty(signPostScaleString))
-            {
-                // If no scale is set, use the default value
-                signPostScaleString = Constants.defaultSignPostScale;
-            }
-            double signPostScale = Convert.ToDouble(signPostScaleString);
-
-            // Insert a new sign post block at the specified location
+            // Load the sign post block for preview
             string signPostPath = @"C:\Users\JAABUK\Desktop\prog\EESTI\Märkide elemendid\Silt.dwg";
-            (ObjectId signPostRefId, ObjectId signPostDefId) = InsertBlockFromDWG(transaction, targetDb, signPostPath, signPostLocation, signPostRotation, signPostScale);
+            ObjectId signPostDefId = LoadBlockDefinition(transaction, targetDb, signPostPath);
 
-            // Prompt user to specify a location for a new sign
-            Point3d signLocation = PromptPoint(editor, new PromptPointOptions("\nSpecify location for the new sign:"));
+            // Create a transient graphics preview of the sign post
+            using (BlockReference previewBlock = new BlockReference(signPostLocation, signPostDefId))
+            {
+                previewBlock.ScaleFactors = new Scale3d(1.0); // Default scale
+                previewBlock.Rotation = 0; // Default rotation
 
-            // Insert the sign
-            ObjectId signRefId = InsertSign(transaction, signPath, targetDb, signLocation, signPostRotation);
+                // Add the preview to transient graphics
+                TransientManager transientManager = TransientManager.CurrentTransientManager;
+                transientManager.AddTransient(previewBlock, TransientDrawingMode.DirectShortTerm, 128, new IntegerCollection());
 
-            // Add sign ObjectId to sign post's list of attached signs
-            AddSignToSignPostMapping(transaction, signPostRefId, signRefId);
+                try
+                {
+                    // Prompt user to specify an angle for sign post rotation
+                    PromptAngleOptions promptSignPostRotationOptions = new PromptAngleOptions("\nSpecify rotation for the new sign post:")
+                    {
+                        DefaultValue = 0,
+                        BasePoint = signPostLocation,
+                        UseBasePoint = true,
+                        UseDefaultValue = true,
+                    };
 
-            // Connect sign to sign post with line
-            ConnectSignToSignPost(transaction, signRefId, signPostRefId);
+                    PromptDoubleResult angleResult = editor.GetAngle(promptSignPostRotationOptions);
+                    if (angleResult.Status == PromptStatus.OK)
+                    {
+                        double signPostRotation = angleResult.Value + (Math.PI / 2); // Adjust rotation by 90 degrees anticlockwise
+                        previewBlock.Rotation = signPostRotation;
+
+                        // Get sign post scale factor from user preferences
+                        string signPostScaleString = RetrieveVariable(transaction, targetDb, "SignPostScale");
+                        if (string.IsNullOrEmpty(signPostScaleString))
+                        {
+                            signPostScaleString = Constants.defaultSignPostScale;
+                        }
+                        double signPostScale = Convert.ToDouble(signPostScaleString);
+                        previewBlock.ScaleFactors = new Scale3d(signPostScale);
+
+                        // Insert the actual sign post block at the specified location
+                        (ObjectId signPostRefId, ObjectId _) = InsertBlockFromDWG(transaction, targetDb, signPostPath, signPostLocation, signPostRotation, signPostScale);
+
+                        // Prompt user to specify a location for a new sign
+                        Point3d signLocation = PromptPoint(editor, new PromptPointOptions("\nSpecify location for the new sign:"));
+
+                        // Insert the sign
+                        ObjectId signRefId = InsertSign(transaction, signPath, targetDb, signLocation, signPostRotation);
+
+                        // Add sign ObjectId to sign post's list of attached signs
+                        AddSignToSignPostMapping(transaction, signPostRefId, signRefId);
+
+                        // Connect sign to sign post with line
+                        ConnectSignToSignPost(transaction, signRefId, signPostRefId);
+                    }
+                }
+                finally
+                {
+                    // Remove the transient preview
+                    transientManager.EraseTransient(previewBlock, new IntegerCollection());
+                }
+            }
         }
 
         private static void AddSignToSignPost(Transaction transaction, string signPath, Editor editor, Database targetDb, ObjectId signPostId)

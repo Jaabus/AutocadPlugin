@@ -206,5 +206,40 @@ namespace AutocadPlugin
             // Return null if the key does not exist
             return null;
         }
+
+        internal static ObjectId LoadBlockDefinition(Transaction transaction, Database targetDb, string dwgPath)
+        {
+            // Create a database for the DWG file
+            Database sourceDb = new Database(false, true);
+
+            try
+            {
+                // Load the DWG file
+                sourceDb.ReadDwgFile(dwgPath, FileOpenMode.OpenForReadAndReadShare, true, null);
+
+                // Get the block table from the target database
+                BlockTable blockTable = (BlockTable)transaction.GetObject(targetDb.BlockTableId, OpenMode.ForRead);
+
+                // Check if the block definition already exists in the target database
+                string blockName = Path.GetFileNameWithoutExtension(dwgPath);
+                if (blockTable.Has(blockName))
+                {
+                    // Return the existing block definition's ObjectId
+                    return blockTable[blockName];
+                }
+
+                // Insert the block definition from the source database into the target database
+                return targetDb.Insert(blockName, sourceDb, false);
+            }
+            catch (Autodesk.AutoCAD.Runtime.Exception ex)
+            {
+                throw new InvalidOperationException($"Failed to load the block definition from the DWG file: {dwgPath}", ex);
+            }
+            finally
+            {
+                // Dispose of the source database
+                sourceDb.Dispose();
+            }
+        }
     }
 }

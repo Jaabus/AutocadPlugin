@@ -2,6 +2,7 @@
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using AutocadPlugin.Properties;
 
 namespace AutocadPlugin
 {
@@ -25,6 +26,16 @@ namespace AutocadPlugin
             if (selectedLineType != null)
             {
                 RoadMarkingCommands.DrawRoadLine(selectedLineType);
+            }
+        }
+
+        private void AddDoubleLineButton_Click(object sender, RoutedEventArgs e)
+        {
+            // Get the selected sign from the line type combo box
+            string selectedLineType = (string)LineTypeComboBox.SelectedItem;
+            if (selectedLineType != null)
+            {
+                RoadMarkingCommands.AddDoubleLine(selectedLineType, 0.05);
             }
         }
 

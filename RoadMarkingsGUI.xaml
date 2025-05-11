@@ -4,6 +4,7 @@
                 xmlns:controls="clr-namespace:System.Windows.Controls;assembly=PresentationFramework">
     <Grid>
 		<ComboBox x:Name="LineTypeComboBox" Width="200" Height="30" VerticalAlignment="Top" Margin="10" />
-		<Button x:Name="DrawLineButton" Width="100" Height="30" VerticalAlignment="Top" Margin="10,100,10,10" Content="Draw Road Line" Click="DrawLineButton_Click" />
+		<Button x:Name="DrawLineButton" Width="150" Height="30" VerticalAlignment="Top" Margin="10,70,10,10" Content="Draw Road Line" Click="DrawLineButton_Click" />
+		<Button x:Name="AddDoubleLineButton" Width="150" Height="30" VerticalAlignment="Top" Margin="10,120,10,10" Content="Add Double Line" Click="AddDoubleLineButton_Click" />
     </Grid>
 </UserControl>

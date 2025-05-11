@@ -7,6 +7,8 @@ namespace AutocadPlugin
         public RoadMarkingsGUI()
         {
             InitializeComponent();
+
+            RoadMarkingCommands.LoadLinetypes(@"C:\Users\JAABUK\Desktop\prog\EESTI\jooned.lin");
         }
     }
 }

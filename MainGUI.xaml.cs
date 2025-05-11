@@ -18,5 +18,10 @@ namespace AutocadPlugin
         {
             CategoryGUIContent.Content = new RoadMarkingsGUI();
         }
+
+        private void HatchesCategory_Click(object sender, System.Windows.RoutedEventArgs e)
+        {
+            CategoryGUIContent.Content = new HatchesGUI();
+        }
     }
 }

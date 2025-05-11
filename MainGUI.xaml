@@ -8,10 +8,12 @@
             <Grid.ColumnDefinitions>
                 <ColumnDefinition />
                 <ColumnDefinition />
+                <ColumnDefinition />
             </Grid.ColumnDefinitions>
 
             <Button x:Name="StreetSignsCategory" Content="Street Signs" Width="100" Height="30" Click="StreetSignsCategory_Click" Grid.Column="0"/>
             <Button x:Name="RoadMarkingsCategory" Content="Road Markings" Width="100" Height="30" Click="RoadMarkingsCategory_Click" Grid.Column="1"/>
+            <Button x:Name="HatchesCategory" Content="Hatch Functions" Width="100" Height="30" Click="HatchesCategory_Click" Grid.Column="2"/>
         </Grid>
         <!-- Container for displaying category UI -->
         <ContentControl x:Name="CategoryGUIContent">

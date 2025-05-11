@@ -17,7 +17,7 @@ namespace AutocadPlugin
                 // Create a new PaletteSet
                 _paletteSet = new PaletteSet("Street signs and markings")
                 {
-                    Size = new System.Drawing.Size(400, 200)
+                    Size = new System.Drawing.Size(500, 200)
                 };
 
                 // Add control to PaletteSet

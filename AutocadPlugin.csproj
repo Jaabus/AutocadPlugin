@@ -6,12 +6,16 @@
 
   <ItemGroup>
     <None Remove="AttributeEditorWindow.xaml" />
+    <None Remove="HatchesGUI.xaml" />
     <None Remove="MainGUI.xaml" />
     <None Remove="RoadMarkingsGUI.xaml" />
   </ItemGroup>
 
   <ItemGroup>
     <Page Include="AttributeEditorWindow.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="HatchesGUI.xaml">
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="MainGUI.xaml">

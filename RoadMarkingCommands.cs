@@ -3,11 +3,14 @@ using System.Collections.Generic;
 using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.EditorInput;
+using Autodesk.AutoCAD.Internal;
 
 namespace AutocadPlugin
 {
     internal static class RoadMarkingCommands
     {
+        private static Dictionary<string, double> lineWidths = new Dictionary<string, double>();
+
         internal static void LoadLinetypes(string linFilePath)
         {
             Document document = Application.DocumentManager.MdiActiveDocument;
@@ -48,12 +51,33 @@ namespace AutocadPlugin
             }
         }
 
+        internal static void LoadLineWidths(string WidthsFilePath)
+        {
+            // Step 1: Read all line width values from the .txt file
+            foreach (var line in System.IO.File.ReadLines(WidthsFilePath))
+            {
+                if (line.StartsWith("*")) // Line width definition starts with "*"
+                {
+                    int commaIndex = line.IndexOf(',');
+                    if (commaIndex > 1) // Ensure there's a valid name before the comma
+                    {
+                        string lineTypeName = line.Substring(1, commaIndex - 1).Trim();
+                        if (double.TryParse(line.Substring(commaIndex + 1).Trim(), out double thickness))
+                        {
+                            lineWidths[lineTypeName] = thickness;
+                        }
+                    }
+                }
+            }
+        }
+
         internal static void DrawRoadLine(string lineType)
         {
             Document document = Application.DocumentManager.MdiActiveDocument;
             Editor editor = document.Editor;
 
-            ObjectId originalLineTypeId = ObjectId.Null;
+            // Store original line type to restore after line is drawn
+            ObjectId originalLineTypeId = document.Database.Celtype;
 
             CommandEventHandler commandEndHandler = null;
 
@@ -64,10 +88,26 @@ namespace AutocadPlugin
                 document.CommandCancelled -= commandEndHandler;
                 document.CommandFailed -= commandEndHandler;
 
-                // Reset the line type
+                // Reset the line type and apply line width
                 using (Transaction transaction = document.TransactionManager.StartTransaction())
                 {
                     document.Database.Celtype = originalLineTypeId;
+
+                    // Retrieve the last drawn polyline
+                    ObjectId polyLineId = Utils.EntLast();
+
+                    Polyline polyline = (Polyline)transaction.GetObject(polyLineId, OpenMode.ForWrite);
+
+                    // Check if the line type has a width and apply it
+                    if (lineWidths.TryGetValue(lineType, out double width))
+                    {
+                        for (int i = 0; i < polyline.NumberOfVertices; i++)
+                        {
+                            polyline.SetStartWidthAt(i, width);
+                            polyline.SetEndWidthAt(i, width);
+                        }
+                    }
+
                     transaction.Commit();
                 }
             };
@@ -85,13 +125,10 @@ namespace AutocadPlugin
                         return;
                     }
 
-                    // Store original line type
-                    originalLineTypeId = document.Database.Celtype;
-                    editor.WriteMessage(originalLineTypeId.ToString());
-
                     // Set the current line type to the specified line type
                     ObjectId lineTypeId = linetypeTable[lineType];
                     document.Database.Celtype = lineTypeId;
+
                     transaction.Commit();
                 }
 

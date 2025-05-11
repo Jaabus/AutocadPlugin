@@ -13,6 +13,8 @@ namespace AutocadPlugin
 
             RoadMarkingCommands.LoadLinetypes(@"C:\Users\JAABUK\Desktop\prog\EESTI\jooned.lin");
 
+            RoadMarkingCommands.LoadLineWidths(@"C:\Users\JAABUK\Desktop\prog\EESTI\jooned_paksused.txt");
+
             PopulateLineTypeComboBox(@"C:\Users\JAABUK\Desktop\prog\EESTI\jooned.lin");
         }
 

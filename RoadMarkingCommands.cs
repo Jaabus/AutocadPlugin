@@ -1,15 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows.Media.Animation;
 using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.DatabaseServices;
+using Autodesk.AutoCAD.EditorInput;
 
 namespace AutocadPlugin
 {
-    internal class RoadMarkingCommands
+    internal static class RoadMarkingCommands
     {
         internal static void LoadLinetypes(string linFilePath)
         {
@@ -48,6 +45,63 @@ namespace AutocadPlugin
                     }
                 }
                 transaction.Commit();
+            }
+        }
+
+        internal static void DrawRoadLine(string lineType)
+        {
+            Document document = Application.DocumentManager.MdiActiveDocument;
+            Editor editor = document.Editor;
+
+            ObjectId originalLineTypeId = ObjectId.Null;
+
+            CommandEventHandler commandEndHandler = null;
+
+            commandEndHandler = (s, e) =>
+            {
+                // Unsubscribe from events
+                document.CommandEnded -= commandEndHandler;
+                document.CommandCancelled -= commandEndHandler;
+                document.CommandFailed -= commandEndHandler;
+
+                // Reset the line type
+                using (Transaction transaction = document.TransactionManager.StartTransaction())
+                {
+                    document.Database.Celtype = originalLineTypeId;
+                    transaction.Commit();
+                }
+            };
+
+            using (DocumentLock docLock = document.LockDocument())
+            {
+                using (Transaction transaction = document.TransactionManager.StartTransaction())
+                {
+                    LinetypeTable linetypeTable = (LinetypeTable)transaction.GetObject(document.Database.LinetypeTableId, OpenMode.ForRead);
+
+                    // Check if the line type is loaded
+                    if (!linetypeTable.Has(lineType))
+                    {
+                        editor.WriteMessage($"\nLine type '{lineType}' is not loaded. Please load it first.");
+                        return;
+                    }
+
+                    // Store original line type
+                    originalLineTypeId = document.Database.Celtype;
+                    editor.WriteMessage(originalLineTypeId.ToString());
+
+                    // Set the current line type to the specified line type
+                    ObjectId lineTypeId = linetypeTable[lineType];
+                    document.Database.Celtype = lineTypeId;
+                    transaction.Commit();
+                }
+
+                // Subscribe to command end events
+                document.CommandEnded += commandEndHandler;
+                document.CommandCancelled += commandEndHandler;
+                document.CommandFailed += commandEndHandler;
+
+                // Invoke the built-in PLINE command
+                document.SendStringToExecute("_PLINE ", true, false, true);
             }
         }
     }

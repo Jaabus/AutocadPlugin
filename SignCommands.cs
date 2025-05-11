@@ -93,7 +93,7 @@ namespace AutocadPlugin
         private static void AddSignToSignPost(Transaction transaction, string signPath, Editor editor, Database targetDb, ObjectId signPostId)
         {
             // Prompt user to specify whether to add sign to top of bottom of existing signs 
-            PromptKeywordOptions options = new PromptKeywordOptions("\nDo you want to add the sign to the [Higher/Lower] position?")
+            PromptKeywordOptions options = new PromptKeywordOptions("\nSpecify sign position [Higher/Lower]")
             {
                 AllowNone = false // Force the user to select one of the options
             };

@@ -7,6 +7,8 @@ namespace AutocadPlugin
         public MainGUI()
         {
             InitializeComponent();
+
+            CategoryGUIContent.Content = new SignSelectorGUI();
         }
 
         private void StreetSignsCategory_Click(object sender, System.Windows.RoutedEventArgs e)

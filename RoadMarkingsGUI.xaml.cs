@@ -29,13 +29,23 @@ namespace AutocadPlugin
             }
         }
 
-        private void AddDoubleLineButton_Click(object sender, RoutedEventArgs e)
+        private void ConvertLineButton_Click(object sender, RoutedEventArgs e)
         {
             // Get the selected sign from the line type combo box
             string selectedLineType = (string)LineTypeComboBox.SelectedItem;
             if (selectedLineType != null)
             {
-                RoadMarkingCommands.AddDoubleLine(selectedLineType, 0.05);
+                RoadMarkingCommands.ConvertPolylineToRoadMarking(selectedLineType);
+            }
+        }
+
+        private void AddOffsetLineButton_Click(object sender, RoutedEventArgs e)
+        {
+            // Get the selected sign from the line type combo box
+            string selectedLineType = (string)LineTypeComboBox.SelectedItem;
+            if (selectedLineType != null)
+            {
+                RoadMarkingCommands.AddOffsetLine(selectedLineType, 0.05);
             }
         }
 
@@ -81,7 +91,7 @@ namespace AutocadPlugin
 
             // 3. Prompt for the length interval.
             PromptDoubleOptions pdoInterval = new PromptDoubleOptions("\nEnter length interval (e.g., 20): ");
-            pdoInterval.DefaultValue = 20.0;
+            pdoInterval.DefaultValue = 30.0;
             PromptDoubleResult intervalRes = editor.GetDouble(pdoInterval);
             if (intervalRes.Status != PromptStatus.OK)
             {
@@ -92,7 +102,7 @@ namespace AutocadPlugin
 
             // 5. Prompt for the text height.
             PromptDoubleOptions pdoTextHeight = new PromptDoubleOptions("\nEnter text height: ");
-            pdoTextHeight.DefaultValue = 5.0;
+            pdoTextHeight.DefaultValue = 0.5;
             PromptDoubleResult textHeightRes = editor.GetDouble(pdoTextHeight);
             if (textHeightRes.Status != PromptStatus.OK)
             {
@@ -103,7 +113,7 @@ namespace AutocadPlugin
 
             // 6. Prompt for the offset distance.
             PromptDoubleOptions pdoOffset = new PromptDoubleOptions("\nEnter offset distance: ");
-            pdoOffset.DefaultValue = 1.0;
+            pdoOffset.DefaultValue = 0.5;
             PromptDoubleResult offsetRes = editor.GetDouble(pdoOffset);
             if (offsetRes.Status != PromptStatus.OK)
             {
@@ -126,7 +136,7 @@ namespace AutocadPlugin
             string side = sideRes.StringResult;
 
             // Finally, call the AnnotatePolyline function with the gathered parameters.
-            RoadMarkingCommands.AnnotatePolyline(polyline, displayText, interval, "Arial", textHeight, offsetDistance, side);
+            RoadMarkingCommands.AnnotatePolyline(polyline, displayText, interval, "STANDARD", textHeight, offsetDistance, side);
         }
 
         private void PopulateLineTypeComboBox(string lineTypeFilePath)

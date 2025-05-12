@@ -15,9 +15,8 @@ namespace AutocadPlugin
             if (_paletteSet == null)
             {
                 // Create a new PaletteSet
-                _paletteSet = new PaletteSet("Street signs and markings")
+                _paletteSet = new PaletteSet("Street signs and road markings")
                 {
-                    Size = new System.Drawing.Size(500, 200)
                 };
 
                 // Add control to PaletteSet
@@ -25,14 +24,15 @@ namespace AutocadPlugin
                 var host = new ElementHost
                 {
                     Dock = WF.DockStyle.Fill,
-                    Child = mainGUI
+                    Child = mainGUI,
                 };
 
                 _paletteSet.Add("Sign Selector", host);
             }
 
-            // Show the PaletteSet
+            // Set paletteset properties
             _paletteSet.Visible = true;
+            _paletteSet.Size = new System.Drawing.Size(400, 300);
         }
 
         [CommandMethod("PS_ResetGUI")]

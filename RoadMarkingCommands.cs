@@ -116,7 +116,7 @@ namespace AutocadPlugin
                         string[] parts = lineType.Split(new char[] { '_' }, 2);
                         string roadLineNumber = parts.Length > 0 ? parts[0] : string.Empty;
 
-                        AnnotatePolyline(polyline, roadLineNumber, 20, "Arial", 3.5, 1, "Left");
+                        AnnotatePolyline(polyline, roadLineNumber, 30, "STANDARD", .5, .5, "Left");
                     }
 
                     transaction.Commit();
@@ -153,7 +153,7 @@ namespace AutocadPlugin
             }
         }
 
-        internal static void AddDoubleLine(string lineType, double offset)
+        internal static void AddOffsetLine(string lineType, double offset)
         {
             Document document = Application.DocumentManager.MdiActiveDocument;
             Editor editor = document.Editor;
@@ -468,5 +468,80 @@ namespace AutocadPlugin
             }
         }
 
+        internal static void ConvertPolylineToRoadMarking(string roadMarkingType)
+        {
+            Document document = Application.DocumentManager.MdiActiveDocument;
+            Editor editor = document.Editor;
+            Polyline polyline = null;
+
+            // Try to get a polyline from the current implied selection
+            PromptSelectionResult selectionResult = editor.SelectImplied();
+            if (selectionResult.Status == PromptStatus.OK && selectionResult.Value.Count == 1)
+            {
+                using (Transaction transaction = document.TransactionManager.StartTransaction())
+                {
+                    Entity ent = transaction.GetObject(selectionResult.Value[0].ObjectId, OpenMode.ForRead) as Entity;
+                    polyline = ent as Polyline;
+                    transaction.Commit();
+                }
+            }
+
+            // If no polyline was found, prompt the user to select one.
+            if (polyline == null)
+            {
+                PromptEntityOptions entityOptions = new PromptEntityOptions("\nSelect a polyline to convert: ");
+                entityOptions.SetRejectMessage("\nOnly polylines are allowed.");
+                entityOptions.AddAllowedClass(typeof(Polyline), true);
+
+                PromptEntityResult entityResult = editor.GetEntity(entityOptions);
+                if (entityResult.Status != PromptStatus.OK)
+                {
+                    editor.WriteMessage("\nOperation canceled.");
+                    return;
+                }
+
+                using (Transaction transaction = document.TransactionManager.StartTransaction())
+                {
+                    polyline = transaction.GetObject(entityResult.ObjectId, OpenMode.ForRead) as Polyline;
+                    transaction.Commit();
+                }
+            }
+
+            // Check if the specified road marking linetype is loaded.
+            using (Transaction transaction = document.TransactionManager.StartTransaction())
+            {
+                LinetypeTable linetypeTable = (LinetypeTable)transaction.GetObject(document.Database.LinetypeTableId, OpenMode.ForRead);
+                if (!linetypeTable.Has(roadMarkingType))
+                {
+                    editor.WriteMessage($"\nLinetype '{roadMarkingType}' is not loaded. Please load it first.");
+                    return;
+                }
+                transaction.Commit();
+            }
+
+            // Convert the polyline by setting its linetype and width.
+            using (DocumentLock docLock = document.LockDocument())
+            {
+                using (Transaction transaction = document.TransactionManager.StartTransaction())
+                {
+                    Polyline pline = transaction.GetObject(polyline.ObjectId, OpenMode.ForWrite) as Polyline;
+                    pline.Linetype = roadMarkingType;
+
+                    // Apply the specified width if available; if not, apply a width of 0.
+                    double appliedWidth = lineWidths.TryGetValue(roadMarkingType, out double width) ? width : 0;
+                    for (int i = 0; i < pline.NumberOfVertices; i++)
+                    {
+                        pline.SetStartWidthAt(i, appliedWidth);
+                        pline.SetEndWidthAt(i, appliedWidth);
+                    }
+                    // Enable linetype generation.
+                    pline.Plinegen = true;
+
+                    transaction.Commit();
+                }
+            }
+
+            editor.WriteMessage("\nConverted polyline to road marking line.");
+        }
     }
 }

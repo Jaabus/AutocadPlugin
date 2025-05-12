@@ -1,3 +1,5 @@
 /bin
 /obj
 /Properties
+App.config
+plugin_start_script.scr

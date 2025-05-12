@@ -4,12 +4,14 @@ using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.EditorInput;
 using Autodesk.AutoCAD.Internal;
+using Autodesk.AutoCAD.Geometry;
 
 namespace AutocadPlugin
 {
     internal static class RoadMarkingCommands
     {
         private static readonly Dictionary<string, double> lineWidths = new Dictionary<string, double>();
+        internal static bool AnnotateRoadLines { get; set; } = false;
 
         internal static void LoadLinetypes(string linFilePath)
         {
@@ -107,6 +109,15 @@ namespace AutocadPlugin
                     }
                     // Enable line type generation
                     polyline.Plinegen = true;
+
+                    if (AnnotateRoadLines)
+                    {
+                        // Get number of road line from lineType ("number_name")
+                        string[] parts = lineType.Split(new char[] { '_' }, 2);
+                        string roadLineNumber = parts.Length > 0 ? parts[0] : string.Empty;
+
+                        AnnotatePolyline(polyline, roadLineNumber, 20, "Arial", 3.5, 1, "Left");
+                    }
 
                     transaction.Commit();
                 }
@@ -292,6 +303,169 @@ namespace AutocadPlugin
             double adjustedOffset = targetOffset + (Math.Sign(targetOffset) * (combinedWidth / 2));
 
             return adjustedOffset;
+        }
+
+        internal static void AnnotatePolyline(Polyline polyline, string text, double interval, string font, double textHeight, double offsetDistance, string side)
+        {
+            if (polyline == null)
+                throw new ArgumentNullException(nameof(polyline));
+
+            Document document = Application.DocumentManager.MdiActiveDocument;
+            Editor ed = document.Editor;
+
+            using (DocumentLock docLock = document.LockDocument())
+            {
+                using (Transaction transaction = document.TransactionManager.StartTransaction())
+                {
+                    // Get modelspace BlockTableRecord
+                    BlockTable blockTable = (BlockTable)transaction.GetObject(document.Database.BlockTableId, OpenMode.ForRead);
+                    BlockTableRecord modelSpace = (BlockTableRecord)transaction.GetObject(blockTable[BlockTableRecord.ModelSpace], OpenMode.ForWrite);
+
+                    // Try to retrieve the text style; if the specified font is not found, default to the current style.
+                    TextStyleTable textStyleTable = (TextStyleTable)transaction.GetObject(document.Database.TextStyleTableId, OpenMode.ForRead);
+                    ObjectId textStyleId = document.Database.Textstyle;
+                    if (textStyleTable.Has(font))
+                    {
+                        textStyleId = textStyleTable[font];
+                    }
+
+                    // Calculate total length of polyline and initialize interval
+                    double totalLength = polyline.Length;
+                    double nextIntervalDistance = interval;
+
+                    // Calculate total number of intervals
+                    int totalIntervals = (int)(totalLength / interval);
+                    if (totalIntervals == 0)
+                    {
+                        ed.WriteMessage("\nThe polyline is too short for the specified interval.");
+                        return;
+                    }
+                    if (totalIntervals > 1000)
+                    {
+                        PromptKeywordOptions confirmOptions = new PromptKeywordOptions("\nMore than 1000 numbers will be drawn. Continue? [Yes/No]: ", "Yes No")
+                        {
+                            AllowNone = false
+                        };
+                        PromptResult confirmResult = ed.GetKeywords(confirmOptions);
+                        if (confirmResult.Status != PromptStatus.OK || confirmResult.StringResult.Equals("No", StringComparison.OrdinalIgnoreCase))
+                        {
+                            ed.WriteMessage("\nOperation cancelled.");
+                            return;
+                        }
+                    }
+
+                    // Loop from the first interval until the end of the polyline
+                    while (nextIntervalDistance <= totalLength)
+                    {
+                        double cumulativeDistance = 0;
+                        // Iterate through each segment of the polyline
+                        for (int i = 0; i < polyline.NumberOfVertices - 1; i++)
+                        {
+                            // Calculate current segment length
+                            Point3d pt1 = polyline.GetPoint3dAt(i);
+                            Point3d pt2 = polyline.GetPoint3dAt(i + 1);
+                            double segLength = pt1.DistanceTo(pt2);
+                            double segmentArcLength = segLength; // default for straight segments
+
+                            // Check if the segment is an arc (nonzero bulge)
+                            double bulge = polyline.GetBulgeAt(i);
+                            if (bulge != 0)
+                            {
+                                // Compute arc properties.
+                                // The arc angle is 4 * atan(bulge)
+                                double arcAngle = 4 * Math.Atan(bulge);
+                                // The chord length is the straight segment length between pt1 and pt2.
+                                double chordLength = segLength;
+                                // Compute the radius of the arc.
+                                double radius = chordLength / (2 * Math.Sin(Math.Abs(arcAngle) / 2));
+                                // Total arc length is |arcAngle| * radius.
+                                segmentArcLength = Math.Abs(arcAngle) * Math.Abs(radius);
+                            }
+
+                            // Check if next interval is on the current segment/arc
+                            if (cumulativeDistance + segmentArcLength >= nextIntervalDistance)
+                            {
+                                Point3d position;
+                                Vector3d tangent;
+
+                                if (bulge == 0)
+                                {
+                                    // Linear interpolation for straight segment.
+                                    double fraction = (nextIntervalDistance - cumulativeDistance) / segLength;
+                                    position = new Point3d(
+                                        pt1.X + (pt2.X - pt1.X) * fraction,
+                                        pt1.Y + (pt2.Y - pt1.Y) * fraction,
+                                        pt1.Z + (pt2.Z - pt1.Z) * fraction
+                                    );
+                                    tangent = (pt2 - pt1).GetNormal();
+                                }
+                                else
+                                {
+                                    // Interpolate along the arc.
+                                    double arcAngle = 4 * Math.Atan(bulge);
+                                    double chordLength = pt1.DistanceTo(pt2);
+                                    // Compute radius 
+                                    double radius = chordLength / (2 * Math.Sin(Math.Abs(arcAngle) / 2));
+                                    // Calculate chord mid-point.
+                                    Point3d midPoint = new Point3d(
+                                        (pt1.X + pt2.X) / 2,
+                                        (pt1.Y + pt2.Y) / 2,
+                                        (pt1.Z + pt2.Z) / 2
+                                    );
+                                    // Determine the perpendicular direction (from pt1 to pt2) for finding the arc center.
+                                    Vector3d chordDir = (pt2 - pt1).GetNormal();
+                                    Vector3d perp;
+                                    // According to AutoCAD conventions, a positive bulge means the arc is drawn counterclockwise from pt1 to pt2.
+                                    perp = bulge > 0 ? chordDir.RotateBy(Math.PI / 2, Vector3d.ZAxis) : chordDir.RotateBy(-Math.PI / 2, Vector3d.ZAxis);
+                                    // Distance from chord midpoint to arc center.
+                                    double centerDist = (chordLength / 2) / Math.Tan(Math.Abs(arcAngle) / 2);
+                                    Point3d center = midPoint + perp * centerDist;
+
+                                    // Determine the fraction along the arc.
+                                    double fraction = (nextIntervalDistance - cumulativeDistance) / (Math.Abs(arcAngle) * Math.Abs(radius));
+                                    // Starting angle (from center to pt1).
+                                    double startAngle = new Vector2d(pt1.X - center.X, pt1.Y - center.Y).Angle;
+                                    // Target angle along the arc.
+                                    double targetAngle = startAngle + fraction * arcAngle;
+                                    // Interpolate Z linearly.
+                                    double z = pt1.Z + fraction * (pt2.Z - pt1.Z);
+                                    // Compute the interpolated point along the arc.
+                                    position = new Point3d(
+                                        center.X + Math.Abs(radius) * Math.Cos(targetAngle),
+                                        center.Y + Math.Abs(radius) * Math.Sin(targetAngle),
+                                        z
+                                    );
+                                    // Compute the tangent at the interpolated point.
+                                    tangent = new Vector3d(-Math.Sin(targetAngle), Math.Cos(targetAngle), 0);
+                                }
+
+                                // For both arc and straight segment, offset the computed position perpendicularly
+                                double offsetAngle = side.Equals("Left", StringComparison.OrdinalIgnoreCase) ? Math.PI / 2 : -Math.PI / 2;
+                                Vector3d offsetDir = tangent.RotateBy(offsetAngle, Vector3d.ZAxis);
+                                Point3d textPosition = position + (offsetDir * offsetDistance);
+
+                                // Create the DBText entity for the annotation
+                                DBText lineTypeText = new DBText
+                                {
+                                    Position = textPosition,
+                                    TextString = $"{text}",
+                                    Height = textHeight,
+                                    TextStyleId = textStyleId
+                                };
+
+                                modelSpace.AppendEntity(lineTypeText);
+                                transaction.AddNewlyCreatedDBObject(lineTypeText, true);
+
+                                // Interval found; break out of the segment loop.
+                                break;
+                            }
+                            cumulativeDistance += segmentArcLength;
+                        }
+                        nextIntervalDistance += interval;
+                    }
+                    transaction.Commit();
+                }
+            }
         }
 
     }

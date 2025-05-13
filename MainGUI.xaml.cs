@@ -25,5 +25,10 @@ namespace AutocadPlugin
         {
             CategoryGUIContent.Content = new HatchesGUI();
         }
+
+        private void Settings_Click(object sender, System.Windows.RoutedEventArgs e)
+        {
+            CategoryGUIContent.Content = new SettingsGUI();
+        }
     }
 }

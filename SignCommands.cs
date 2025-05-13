@@ -373,6 +373,7 @@ namespace AutocadPlugin
         private static List<ObjectId> LoadSignPostMapping(Transaction transaction, ObjectId signPostId)
         {
             // Get the sign post object
+            if (signPostId.IsErased) return new List<ObjectId>();
             DBObject signPost = transaction.GetObject(signPostId, OpenMode.ForRead);
 
             // Retrieve the XData
@@ -433,6 +434,8 @@ namespace AutocadPlugin
 
         private static void RemoveSignFromSignPostMapping(Transaction transaction, ObjectId signPostId, ObjectId signId)
         {
+            if (signPostId.IsErased) return;
+
             // Get already attached sign Ids
             List<ObjectId> attachedSigns = LoadSignPostMapping(transaction, signPostId);
 
@@ -780,14 +783,14 @@ namespace AutocadPlugin
 
                         // Set cell alignments
                         table.Cells[i + 2, 0].Alignment = CellAlignment.MiddleCenter;
-                        table.Cells[i + 2, 1].Alignment = CellAlignment.MiddleLeft;
+                        table.Cells[i + 2, 1].Alignment = CellAlignment.MiddleCenter;
                         table.Cells[i + 2, 2].Alignment = CellAlignment.MiddleCenter;
 
                         // Add sign code
                         table.Cells[i + 2, 0].TextString = code;
 
                         // Add coordinates
-                        table.Cells[i + 2, 1].TextString = $"({location.X:F2}, {location.Y:F2}, {location.Z:F2})";
+                        table.Cells[i + 2, 1].TextString = $"({location.X:F2}, {location.Z:F2}, {location.Y:F2})";
 
                         try
                         {

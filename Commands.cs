@@ -35,7 +35,7 @@ namespace AutocadPlugin
 
             // Set paletteset properties
             _paletteSet.Visible = true;
-            _paletteSet.Size = new System.Drawing.Size(400, 300);
+            _paletteSet.Size = new System.Drawing.Size(450, 300);
         }
 
         [CommandMethod("RD_ResetGUI")]
@@ -45,6 +45,8 @@ namespace AutocadPlugin
             if (_paletteSet != null)
             {
                 bool wasVisible = _paletteSet.Visible;
+                System.Drawing.Point location = _paletteSet.Location;
+                System.Drawing.Size size = _paletteSet.Size;
 
                 _paletteSet.Visible = false;
                 _paletteSet.Dispose();

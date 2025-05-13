@@ -5,10 +5,25 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="NewFolder\**" />
+    <EmbeddedResource Remove="NewFolder\**" />
+    <None Remove="NewFolder\**" />
+  </ItemGroup>
+
+  <ItemGroup>
     <None Remove="AttributeEditorWindow.xaml" />
     <None Remove="HatchesGUI.xaml" />
     <None Remove="MainGUI.xaml" />
+    <None Remove="Resources\settings_cog.svg" />
+    <None Remove="Resources\VectorIcons.xaml" />
     <None Remove="RoadMarkingsGUI.xaml" />
+    <None Remove="SettingsGUI.xaml" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="Resources\VectorIcons.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Resource>
   </ItemGroup>
 
   <ItemGroup>
@@ -22,6 +37,9 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="RoadMarkingsGUI.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="SettingsGUI.xaml">
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="SignSelectorGUI.xaml">
@@ -77,6 +95,28 @@
     <Reference Include="System.Xaml" />
     <Reference Include="WindowsBase" />
     <Reference Include="WindowsFormsIntegration" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Update="Resources.resx">
+      <Generator>PublicResXFileCodeGenerator</Generator>
+      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
+    <EmbeddedResource Update="Resources\Resources.et.resx">
+      <Generator>PublicResXFileCodeGenerator</Generator>
+    </EmbeddedResource>
+    <EmbeddedResource Update="Resources\Resources.resx">
+      <Generator>PublicResXFileCodeGenerator</Generator>
+      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Update="Resources\Resources.Designer.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Resources.resx</DependentUpon>
+    </Compile>
   </ItemGroup>
 
 </Project>

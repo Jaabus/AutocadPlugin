@@ -4,3 +4,7 @@ App.config
 plugin_start_script.scr
 Properties/Settings.Designer.cs
 Properties/launchSettings.json
+/src/obj
+/src/bin
+src/Properties/Settings.Designer.cs
+src/Properties/launchSettings.json

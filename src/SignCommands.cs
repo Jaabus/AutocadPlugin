@@ -415,6 +415,8 @@ namespace AutocadPlugin
             {
                 if (!args.DBObject.IsErased) return;
 
+                if (signPostId.IsErased) return;
+
                 // Remove the sign from the sign post mapping
                 using (Transaction innerTransaction = signId.Database.TransactionManager.StartTransaction())
                 {

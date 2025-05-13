@@ -1,6 +1,9 @@
 using System.Windows.Forms.Integration;
+using Autodesk.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.Runtime;
 using Autodesk.AutoCAD.Windows;
+using Autodesk.AutoCAD.EditorInput;
+using Autodesk.AutoCAD.ApplicationServices;
 using WF = System.Windows.Forms;
 
 namespace AutocadPlugin
@@ -9,7 +12,7 @@ namespace AutocadPlugin
     {
         private static PaletteSet _paletteSet;
 
-        [CommandMethod("PS_DrawGUI")]
+        [CommandMethod("RD_DrawGUI")]
         public static void DrawGUI()
         {
             if (_paletteSet == null)
@@ -35,7 +38,7 @@ namespace AutocadPlugin
             _paletteSet.Size = new System.Drawing.Size(400, 300);
         }
 
-        [CommandMethod("PS_ResetGUI")]
+        [CommandMethod("RD_ResetGUI")]
 
         public static void ResetGUI()
         {
@@ -54,6 +57,66 @@ namespace AutocadPlugin
                 if (!wasVisible)
                 {
                     _paletteSet.Visible = false;
+                }
+            }
+        }
+
+        [CommandMethod("RD_ReadXData")]
+
+        public static void ReadXData()
+        {
+            Document document = Application.DocumentManager.MdiActiveDocument;
+            Editor editor = document.Editor;
+
+            // Prompt user to select entity to read from
+            if (!CommandUtilites.TryPromptEntity(editor, new PromptEntityOptions("\nSelect an entity to read xdata from: "), out ObjectId entityId))
+            {
+                editor.WriteMessage("\nNo entity selected.");
+                return;
+            }
+
+            if (entityId == ObjectId.Null)
+            {
+                editor.WriteMessage("\nNo entity selected.");
+                return;
+            }
+
+            using (Transaction transaction = document.Database.TransactionManager.StartTransaction())
+            {
+                try
+                {
+                    // Open the selected entity for read
+                    Entity entity = transaction.GetObject(entityId, OpenMode.ForRead) as Entity;
+
+                    if (entity == null)
+                    {
+                        editor.WriteMessage("\nSelected object is not a valid entity.");
+                        return;
+                    }
+
+                    // Retrieve the xdata
+                    ResultBuffer xdata = entity.XData;
+
+                    if (xdata == null)
+                    {
+                        editor.WriteMessage("\nNo xdata found for the selected entity.");
+                    }
+                    else
+                    {
+                        // Print xdata to the editor
+                        foreach (TypedValue value in xdata)
+                        {
+                            editor.WriteMessage($"\nType: {value.TypeCode}, Value: {value.Value}");
+                        }
+                    }
+                }
+                catch (System.Exception ex)
+                {
+                    editor.WriteMessage($"\nError: {ex.Message}");
+                }
+                finally
+                {
+                    transaction.Commit();
                 }
             }
         }

@@ -95,6 +95,10 @@ namespace AutocadPlugin
 
         internal static ObjectId GetObjectIdFromHandle(Database db, string handleString)
         {
+            if (string.IsNullOrWhiteSpace(handleString))
+            {
+                return ObjectId.Null;
+            }
             Handle handle = new Handle(Convert.ToInt64(handleString, 16));
             ObjectId id = db.GetObjectId(false, handle, 0);
             return id;
@@ -116,26 +120,43 @@ namespace AutocadPlugin
             throw new InvalidOperationException("The block reference does not contain an attribute with provided tag.");
         }
 
-        internal static Point3d PromptPoint(Editor editor, PromptPointOptions options)
+        internal static bool TryPromptPoint(Editor editor, PromptPointOptions options, out Point3d point)
         {
             var result = editor.GetPoint(options);
             if (result.Status != PromptStatus.OK)
             {
                 editor.WriteMessage("\nOperation canceled.");
-                throw new OperationCanceledException();
+                point = Point3d.Origin;
+                return false;
             }
-            return result.Value;
+            point = result.Value;
+            return true;
         }
 
-        internal static double PromtAngle(Editor editor, PromptAngleOptions options)
+        internal static bool TryPromptAngle(Editor editor, PromptAngleOptions options, out double angle)
         {
             var result = editor.GetAngle(options);
             if (result.Status != PromptStatus.OK)
             {
                 editor.WriteMessage("\nOperation canceled.");
-                throw new OperationCanceledException();
+                angle = 0;
+                return false;
             }
-            return result.Value;
+            angle = result.Value;
+            return true;
+        }
+
+        internal static bool TryPromptEntity(Editor editor, PromptEntityOptions options, out ObjectId objectId)
+        {
+            var result = editor.GetEntity(options);
+            if (result.Status != PromptStatus.OK)
+            {
+                editor.WriteMessage("\nOperation canceled.");
+                objectId = ObjectId.Null;
+                return false;
+            }
+            objectId = result.ObjectId;
+            return true;
         }
 
         internal static void StoreVariable(Transaction transaction, Database db, string key, string value)

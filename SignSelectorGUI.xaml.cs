@@ -100,6 +100,11 @@ namespace AutocadPlugin
             }
         }
 
+        private void GenerateSignReportButton_Click(object sender, RoutedEventArgs e)
+        {
+            SignCommands.GenerateSignReport();
+        }
+
         private void InitializeScaleTextBoxes()
         {
             // Get the current document and its database

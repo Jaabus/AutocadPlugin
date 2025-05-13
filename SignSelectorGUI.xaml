@@ -11,6 +11,8 @@
         <ComboBox x:Name="SignsComboBox" Width="200" Height="30" VerticalAlignment="Top" Margin="10,50,10,10" />
         <!-- Button to insert sign -->
         <Button x:Name="InsertSignButton" Width="100" Height="30" VerticalAlignment="Top" Margin="10,100,10,10" Content="Insert Sign" Click="InsertSignButton_Click" />
+        <!-- Button to generate sign report -->
+        <Button x:Name="GenerateSignReportButton" Width="140" Height="30" VerticalAlignment="Top" Margin="10,150,10,10" Content="Generate Sign Report" Click="GenerateSignReportButton_Click" />
         </Grid>
         <Grid HorizontalAlignment="Center">
             <Grid.ColumnDefinitions>

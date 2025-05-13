@@ -50,7 +50,10 @@ namespace AutocadPlugin
         private static void InsertSignPostAndSign(Transaction transaction, string signPath, Editor editor, Database targetDb)
         {
             // Prompt user to specify a location for a new sign post
-            Point3d signPostLocation = PromptPoint(editor, new PromptPointOptions("\nSpecify location for the new sign post:"));
+            if (!TryPromptPoint(editor, new PromptPointOptions("\nSpecify location for the new sign post:"), out Point3d signPostLocation))
+            {
+                return;
+            }
 
             // Load the sign post block for preview
             string signPostPath = @"C:\Users\JAABUK\Desktop\prog\EESTI\Märkide elemendid\Silt.dwg";
@@ -95,8 +98,14 @@ namespace AutocadPlugin
                         // Insert the actual sign post block at the specified location
                         (ObjectId signPostRefId, ObjectId _) = InsertBlockFromDWG(transaction, targetDb, signPostPath, signPostLocation, signPostRotation, signPostScale);
 
+                        AddSignPostToNOD(transaction, targetDb, signPostRefId);
+                        AttachSignPostErasedEvent(transaction, targetDb, signPostRefId);
+
                         // Prompt user to specify a location for a new sign
-                        Point3d signLocation = PromptPoint(editor, new PromptPointOptions("\nSpecify location for the new sign:"));
+                        if (!TryPromptPoint(editor, new PromptPointOptions("\nSpecify location for the new sign:"), out Point3d signLocation))
+                        {
+                            return;
+                        }
 
                         // Insert the sign
                         ObjectId signRefId = InsertSign(transaction, signPath, targetDb, signLocation, signPostRotation);
@@ -118,6 +127,26 @@ namespace AutocadPlugin
 
         private static void AddSignToSignPost(Transaction transaction, string signPath, Editor editor, Database targetDb, ObjectId signPostId)
         {
+            // Get the highest sign
+            ObjectId highestSign = FindHighestAttachedSign(transaction, signPostId);
+
+            // Get the lowest sign
+            ObjectId lowestSign = FindLowestAttachedSign(transaction, signPostId);
+
+            // If no signs are attached, insert the new sign at user specifed location
+            if (highestSign == ObjectId.Null || lowestSign == ObjectId.Null)
+            {
+                if (!TryPromptPoint(editor, new PromptPointOptions("\nSpecify location for the new sign:"), out Point3d signLocation))
+                {
+                    return;
+                }
+                double signPostRotation = GetObjectRotation(transaction, signPostId);
+                ObjectId signRefId = InsertSign(transaction, signPath, targetDb, signLocation, signPostRotation);
+                AddSignToSignPostMapping(transaction, signPostId, signRefId);
+                ConnectSignToSignPost(transaction, signRefId, signPostId);
+                return; // Exit if no signs are attached
+            }
+
             // Prompt user to specify whether to add sign to top of bottom of existing signs 
             PromptKeywordOptions options = new PromptKeywordOptions("\nSpecify sign position [Higher/Lower]")
             {
@@ -144,8 +173,6 @@ namespace AutocadPlugin
             // If user selected higher, insert sign on top of existing signs
             if (result.StringResult == "Higher")
             {
-                // Get the highest sign
-                ObjectId highestSign = FindHighestAttachedSign(transaction, signPostId);
 
                 // Get top middle point of highest sign
                 (_, Point3d middleTop) = GetSignAnchorPoints(transaction, highestSign);
@@ -162,8 +189,6 @@ namespace AutocadPlugin
             // If user selected higher, insert sign below existing signs
             else if (result.StringResult == "Lower")
             {
-                // Get the lowest sign
-                ObjectId lowestSign = FindLowestAttachedSign(transaction, signPostId);
 
                 // Get bottom middle point of lowest sign
                 (Point3d middleBottom, _) = GetSignAnchorPoints(transaction, lowestSign);
@@ -383,6 +408,27 @@ namespace AutocadPlugin
 
             // Save list with added sign to sign post
             SaveSignPostMapping(transaction, signPostId, attachedSigns);
+
+            // Attach an ObjectErased event listener to the sign
+            blockRef.Erased += (sender, args) =>
+            {
+                if (!args.DBObject.IsErased) return;
+
+                // Remove the sign from the sign post mapping
+                using (Transaction innerTransaction = signId.Database.TransactionManager.StartTransaction())
+                {
+                    try
+                    {
+                        RemoveSignFromSignPostMapping(innerTransaction, signPostId, signId);
+                        innerTransaction.Commit();
+                    }
+                    catch
+                    {
+                        innerTransaction.Abort();
+                        throw;
+                    }
+                }
+            };
         }
 
         private static void RemoveSignFromSignPostMapping(Transaction transaction, ObjectId signPostId, ObjectId signId)
@@ -432,6 +478,12 @@ namespace AutocadPlugin
                 signHeights[sign] = signHeight;
             }
 
+            // If no sign are attached, return null objectid
+            if (signHeights.Count == 0)
+            {
+                return ObjectId.Null;
+            }
+
             // Return lowest/highest sign
             if (lowestSign == true)
             {
@@ -472,6 +524,300 @@ namespace AutocadPlugin
             }
 
             return (middleBottom, middleTop);
+        }
+
+        private static void AddSignPostToNOD(Transaction transaction, Database db, ObjectId signPostId)
+        {
+            // Retrieve the custom dictionary from the NOD
+            DBDictionary nod = (DBDictionary)transaction.GetObject(db.NamedObjectsDictionaryId, OpenMode.ForRead);
+            const string customDictName = "SignPostList";
+            DBDictionary customDict;
+
+            if (!nod.Contains(customDictName))
+            {
+                // Create the custom dictionary if it doesn't exist
+                nod.UpgradeOpen();
+                customDict = new DBDictionary();
+                nod.SetAt(customDictName, customDict);
+                transaction.AddNewlyCreatedDBObject(customDict, true);
+            }
+            else
+            {
+                // Retrieve the existing custom dictionary
+                customDict = (DBDictionary)transaction.GetObject(nod.GetAt(customDictName), OpenMode.ForWrite);
+            }
+
+            // Check if the XRecord exists
+            const string xRecordKey = "SignPostIds";
+            Xrecord xRecord;
+
+            if (!customDict.Contains(xRecordKey))
+            {
+                // Create a new XRecord if it doesn't exist
+                xRecord = new Xrecord
+                {
+                    Data = new ResultBuffer()
+                };
+                customDict.SetAt(xRecordKey, xRecord);
+                transaction.AddNewlyCreatedDBObject(xRecord, true);
+            }
+            else
+            {
+                // Retrieve the existing XRecord
+                xRecord = (Xrecord)transaction.GetObject(customDict.GetAt(xRecordKey), OpenMode.ForWrite);
+            }
+
+            // Deserialize the existing list of ObjectIds
+            List<ObjectId> signPostIds = DeserializeObjectIds(xRecord.Data);
+
+            // Add the new sign post ID
+            if (!signPostIds.Contains(signPostId))
+            {
+                signPostIds.Add(signPostId);
+            }
+
+            // Serialize the updated list back into the XRecord
+            xRecord.Data = SerializeObjectIds(signPostIds);
+        }
+
+        private static void RemoveSignPostFromNOD(Transaction transaction, Database db, ObjectId signPostId)
+        {
+            // Retrieve the custom dictionary from the NOD
+            DBDictionary nod = (DBDictionary)transaction.GetObject(db.NamedObjectsDictionaryId, OpenMode.ForRead);
+            const string customDictName = "SignPostList";
+
+            if (!nod.Contains(customDictName)) return;
+
+            DBDictionary customDict = (DBDictionary)transaction.GetObject(nod.GetAt(customDictName), OpenMode.ForWrite);
+
+            const string xRecordKey = "SignPostIds";
+            if (!customDict.Contains(xRecordKey)) return;
+
+            // Retrieve the existing XRecord
+            Xrecord xRecord = (Xrecord)transaction.GetObject(customDict.GetAt(xRecordKey), OpenMode.ForWrite);
+
+            // Deserialize the existing list of ObjectIds
+            List<ObjectId> signPostIds = DeserializeObjectIds(xRecord.Data);
+
+            // Remove the sign post ID
+            if (signPostIds.Contains(signPostId))
+            {
+                signPostIds.Remove(signPostId);
+            }
+
+            // Serialize the updated list back into the XRecord
+            xRecord.Data = SerializeObjectIds(signPostIds);
+        }
+
+        private static List<ObjectId> GetAllSignPostsFromNOD(Transaction transaction, Database db)
+        {
+            // Retrieve the custom dictionary from the NOD
+            DBDictionary nod = (DBDictionary)transaction.GetObject(db.NamedObjectsDictionaryId, OpenMode.ForRead);
+            const string customDictName = "SignPostList";
+
+            if (!nod.Contains(customDictName)) return new List<ObjectId>();
+
+            DBDictionary customDict = (DBDictionary)transaction.GetObject(nod.GetAt(customDictName), OpenMode.ForRead);
+
+            const string xRecordKey = "SignPostIds";
+            if (!customDict.Contains(xRecordKey)) return new List<ObjectId>();
+
+            // Retrieve the existing XRecord
+            Xrecord xRecord = (Xrecord)transaction.GetObject(customDict.GetAt(xRecordKey), OpenMode.ForRead);
+
+            // Deserialize and return the list of ObjectIds
+            return DeserializeObjectIds(xRecord.Data);
+        }
+
+        private static ResultBuffer SerializeObjectIds(List<ObjectId> objectIds)
+        {
+            return new ResultBuffer(objectIds.Select(id => new TypedValue((int)DxfCode.Handle, id.Handle.ToString())).ToArray());
+        }
+
+        private static List<ObjectId> DeserializeObjectIds(ResultBuffer buffer)
+        {
+            if (buffer == null) return new List<ObjectId>();
+
+            return buffer
+                .AsArray()
+                .Where(tv => tv.TypeCode == (int)DxfCode.Handle)
+                .Select(tv => GetObjectIdFromHandle(Application.DocumentManager.MdiActiveDocument.Database, tv.Value.ToString()))
+                .Where(id => id != ObjectId.Null)
+                .ToList();
+        }
+
+        private static void AttachSignPostErasedEvent(Transaction transaction, Database db, ObjectId signPostId)
+        {
+            BlockReference signPost = transaction.GetObject(signPostId, OpenMode.ForWrite) as BlockReference;
+            if (signPost != null)
+            {
+                signPost.Erased += (sender, args) =>
+                {
+                    if (args.DBObject.IsErased)
+                    {
+                        using (Transaction innerTransaction = db.TransactionManager.StartTransaction())
+                        {
+                            RemoveSignPostFromNOD(innerTransaction, db, signPostId);
+                            innerTransaction.Commit();
+                        }
+                    }
+                };
+            }
+        }
+
+        internal static void GenerateSignReport()
+        {
+            Document document = Application.DocumentManager.MdiActiveDocument;
+            Database db = document.Database;
+
+            using (Transaction transaction = db.TransactionManager.StartTransaction())
+            {
+                // Step 1: Retrieve all sign posts from the NamedObjectsDictionary
+                List<ObjectId> signPostIds = GetAllSignPostsFromNOD(transaction, db);
+
+                // Step 2: Collect all signs and their details
+                List<(string Code, Point3d Location, ObjectId SignId)> signDetails = new List<(string, Point3d, ObjectId)>();
+
+                foreach (ObjectId signPostId in signPostIds)
+                {
+                    // Get attached signs for the current sign post
+                    List<ObjectId> attachedSigns = LoadSignPostMapping(transaction, signPostId);
+
+                    foreach (ObjectId signId in attachedSigns)
+                    {
+                        // Get the sign block reference
+                        BlockReference signRef = transaction.GetObject(signId, OpenMode.ForRead) as BlockReference;
+                        if (signRef == null) continue;
+
+                        // Get the sign post block reference
+                        BlockReference signPostRef = transaction.GetObject(signPostId, OpenMode.ForRead) as BlockReference;
+                        if (signRef == null) continue;
+
+                        // Extract the sign's name
+                        string signName = GetBlockName(transaction, signRef);
+
+                        // Extract the sign's code (first part of the name before the space)
+                        string signCode = signName.Split(' ')[0];
+
+                        // Get the sign post's location
+                        Point3d signLocation = signPostRef.Position;
+
+                        // Add the details to the list
+                        signDetails.Add((signCode, signLocation, signId));
+                    }
+                }
+
+                // Step 3: Create a new layout and add a table
+                CreateSignReportLayout(transaction, db, document, signDetails);
+
+                transaction.Commit();
+            }
+        }
+
+        private static string GetBlockName(Transaction transaction, BlockReference blockRef)
+        {
+            BlockTableRecord blockDef = transaction.GetObject(blockRef.BlockTableRecord, OpenMode.ForRead) as BlockTableRecord;
+            return blockDef?.Name ?? string.Empty;
+        }
+
+        private static void CreateSignReportLayout(Transaction transaction, Database db, Document document, List<(string Code, Point3d Location, ObjectId SignId)> signDetails)
+        {
+            using (DocumentLock docLock = document.LockDocument())
+            {
+                try
+                {
+                    // Create a new layout
+                    LayoutManager layoutManager = LayoutManager.Current;
+                    string layoutName = "Sign Report";
+                    if (layoutManager.LayoutExists(layoutName))
+                    {
+                        layoutManager.DeleteLayout(layoutName);
+                    }
+                    layoutManager.CreateLayout(layoutName);
+                    Layout layout = transaction.GetObject(layoutManager.GetLayoutId(layoutName), OpenMode.ForWrite) as Layout;
+                    document.Editor.WriteMessage("\nLayout created successfully");
+
+                    // Get the block table record for the layout
+                    BlockTableRecord layoutBlock = transaction.GetObject(layout.BlockTableRecordId, OpenMode.ForWrite) as BlockTableRecord;
+
+                    // Create a table with specific dimensions
+                    Table table = new Table
+                    {
+                        TableStyle = db.Tablestyle,
+                        Width = 290, // Total table width
+                        Height = signDetails.Count > 0 ? (signDetails.Count + 1) * 20 : 100 // Scale height based on number of rows
+                    };
+
+                    // Set the number of rows and columns
+                    table.SetSize(signDetails.Count + 2, 3);
+
+                    table.Columns[0].Width = 80;  // Sign Code column (about 28% of width)
+                    table.Columns[1].Width = 130; // Coordinates column (about 45% of width)
+                    table.Columns[2].Width = 80;  // Preview column (about 28% of width)
+
+                    // Set uniform row height
+                    table.SetRowHeight(20);
+
+                    // Set header rows
+                    table.Cells[0, 0].TextString = "Sign Report";
+                    table.Cells[1, 0].TextString = "Sign Code";
+                    table.Cells[1, 1].TextString = "Coordinates";
+                    table.Cells[1, 2].TextString = "Preview";
+
+                    // Set header rows' alignemnt and text height
+                    for (int col = 0; col < 3; col++)
+                    {
+                        table.Cells[0, col].Alignment = CellAlignment.MiddleCenter;
+                        table.Cells[0, col].TextHeight = 5.0;
+                        table.Cells[1, col].Alignment = CellAlignment.MiddleCenter;
+                        table.Cells[1, col].TextHeight = 5.0;
+                    }
+
+                    // Populate the table
+                    for (int i = 0; i < signDetails.Count; i++)
+                    {
+                        var (code, location, signId) = signDetails[i];
+
+                        // Set cell alignments
+                        table.Cells[i + 2, 0].Alignment = CellAlignment.MiddleCenter;
+                        table.Cells[i + 2, 1].Alignment = CellAlignment.MiddleLeft;
+                        table.Cells[i + 2, 2].Alignment = CellAlignment.MiddleCenter;
+
+                        // Add sign code
+                        table.Cells[i + 2, 0].TextString = code;
+
+                        // Add coordinates
+                        table.Cells[i + 2, 1].TextString = $"({location.X:F2}, {location.Y:F2}, {location.Z:F2})";
+
+                        try
+                        {
+                            BlockReference signRef = transaction.GetObject(signId, OpenMode.ForRead) as BlockReference;
+                            if (signRef != null)
+                            {
+                                table.Cells[i + 2, 2].BlockTableRecordId = signRef.BlockTableRecord;
+                            }
+                        }
+                        catch (Autodesk.AutoCAD.Runtime.Exception ex)
+                        {
+                            document.Editor.WriteMessage($"\nError adding preview for sign {code}: {ex.Message}");
+                            table.Cells[i + 2, 2].TextString = "N/A";
+                        }
+                    }
+
+                    // Add the table to the layout
+                    layoutBlock.AppendEntity(table);
+                    transaction.AddNewlyCreatedDBObject(table, true);
+
+                    // Make the new layout current
+                    LayoutManager.Current.CurrentLayout = layoutName;
+
+                }
+                catch (Autodesk.AutoCAD.Runtime.Exception ex)
+                {
+                    document.Editor.WriteMessage($"\nError creating layout: {ex.Message}");
+                    document.Editor.WriteMessage($"\nStack trace: {ex.StackTrace}");
+                }
+            }
         }
     }
 }

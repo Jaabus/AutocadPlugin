@@ -103,9 +103,31 @@ namespace AutocadPlugin
                 if (!string.IsNullOrEmpty(sourceName))
                 {
                     var parts = sourceName.Split('_');
-                    if (parts.Length > 1 && int.TryParse(parts[0], out _))
+
+                    // Ensure there's at least one part before an underscore and that part is not empty.
+                    if (parts.Length > 1 && !string.IsNullOrEmpty(parts[0]))
                     {
-                        displayNumber = parts[0];
+                        string firstPart = parts[0]; // This is the potential number or number-letter part
+
+                        // Case 1: The first part is purely a number (e.g., "123")
+                        if (int.TryParse(firstPart, out _))
+                        {
+                            displayNumber = firstPart;
+                        }
+                        // Case 2: The first part could be a number followed by a single letter (e.g., "523a")
+                        // This part must be at least two characters long (e.g., "1a", not just "a").
+                        else if (firstPart.Length > 1)
+                        {
+                            char lastChar = firstPart[firstPart.Length - 1];
+                            // Get the segment of the string before the last character
+                            string potentialNumberSegment = firstPart.Substring(0, firstPart.Length - 1);
+
+                            // Check if the last character is a letter AND the segment before it is a valid integer
+                            if (char.IsLetter(lastChar) && int.TryParse(potentialNumberSegment, out _))
+                            {
+                                displayNumber = firstPart;
+                            }
+                        }
                     }
                 }
 

@@ -78,7 +78,54 @@ namespace AutocadPlugin
                 return;
             }
 
-            // 2. Prompt for the display text.
+            // 2. Promt whether user wishes to specify settings
+            PromptKeywordOptions pkoSettings = new PromptKeywordOptions("\nSpecify settings [Yes/No]: ");
+            pkoSettings.Keywords.Add("Yes");
+            pkoSettings.Keywords.Add("No");
+            pkoSettings.Keywords.Default = ("No");
+            PromptResult settingsRes = editor.GetKeywords(pkoSettings);
+            if (settingsRes.Status != PromptStatus.OK)
+            {
+                editor.WriteMessage("\nOperation canceled.");
+                return;
+            }
+            string settings = settingsRes.StringResult;
+
+            if (settings == "No")
+            {
+                // Try to get linetype number from the polyline's layer name (format: number_name)
+                string displayNumber = null;
+                string sourceName = polyline.Linetype;
+
+                if (!string.IsNullOrEmpty(sourceName))
+                {
+                    var parts = sourceName.Split('_');
+                    if (parts.Length > 1 && int.TryParse(parts[0], out _))
+                    {
+                        displayNumber = parts[0];
+                    }
+                }
+
+                // If no number found, prompt the user for display text
+                if (string.IsNullOrEmpty(displayNumber))
+                {
+                    PromptStringOptions psoNumber = new PromptStringOptions("\nEnter display text: ");
+                    psoNumber.AllowSpaces = true;
+                    PromptResult numberRes = editor.GetString(psoNumber);
+                    if (numberRes.Status != PromptStatus.OK)
+                    {
+                        editor.WriteMessage("\nOperation canceled.");
+                        return;
+                    }
+                    displayNumber = numberRes.StringResult;
+                }
+
+                // Call AnnotatePolyline with default settings
+                RoadMarkingCommands.AnnotatePolyline(polyline, displayNumber, 30, "STANDARD", 0.5, 0.5, "Right");
+                return;
+            }
+
+            // 3. Prompt for the display text.
             PromptStringOptions psoText = new PromptStringOptions("\nEnter display text: ");
             psoText.AllowSpaces = true;
             PromptResult textRes = editor.GetString(psoText);
@@ -89,7 +136,7 @@ namespace AutocadPlugin
             }
             string displayText = textRes.StringResult;
 
-            // 3. Prompt for the length interval.
+            // 4. Prompt for the length interval.
             PromptDoubleOptions pdoInterval = new PromptDoubleOptions("\nEnter length interval (e.g., 20): ");
             pdoInterval.DefaultValue = 30.0;
             PromptDoubleResult intervalRes = editor.GetDouble(pdoInterval);

@@ -311,35 +311,51 @@ namespace AutocadPlugin
                 throw new ArgumentNullException(nameof(polyline));
 
             Document document = Application.DocumentManager.MdiActiveDocument;
+            if (document == null) return; // Or throw exception
             Editor ed = document.Editor;
+            Database db = document.Database;
 
             using (DocumentLock docLock = document.LockDocument())
             {
-                using (Transaction transaction = document.TransactionManager.StartTransaction())
+                using (Transaction transaction = db.TransactionManager.StartTransaction())
                 {
-                    // Get modelspace BlockTableRecord
-                    BlockTable blockTable = (BlockTable)transaction.GetObject(document.Database.BlockTableId, OpenMode.ForRead);
+                    BlockTable blockTable = (BlockTable)transaction.GetObject(db.BlockTableId, OpenMode.ForRead);
                     BlockTableRecord modelSpace = (BlockTableRecord)transaction.GetObject(blockTable[BlockTableRecord.ModelSpace], OpenMode.ForWrite);
 
-                    // Try to retrieve the text style; if the specified font is not found, default to the current style.
-                    TextStyleTable textStyleTable = (TextStyleTable)transaction.GetObject(document.Database.TextStyleTableId, OpenMode.ForRead);
-                    ObjectId textStyleId = document.Database.Textstyle;
+                    TextStyleTable textStyleTable = (TextStyleTable)transaction.GetObject(db.TextStyleTableId, OpenMode.ForRead);
+                    ObjectId textStyleId = db.Textstyle; // Default to current style
                     if (textStyleTable.Has(font))
                     {
                         textStyleId = textStyleTable[font];
                     }
-
-                    // Calculate total length of polyline and initialize interval
-                    double totalLength = polyline.Length;
-                    double nextIntervalDistance = interval;
-
-                    // Calculate total number of intervals
-                    int totalIntervals = (int)(totalLength / interval);
-                    if (totalIntervals == 0)
+                    else
                     {
-                        ed.WriteMessage("\nThe polyline is too short for the specified interval.");
+                        ed.WriteMessage($"\nFont style '{font}' not found. Using current style.");
+                    }
+
+                    double totalLength = polyline.Length;
+                    if (totalLength < interval || interval <= 0) // Added check for interval <= 0
+                    {
+                        ed.WriteMessage("\nThe polyline is too short for the specified interval, or interval is invalid.");
+                        transaction.Abort(); // Abort transaction as no changes will be made
                         return;
                     }
+
+                    double nextIntervalDistance = interval;
+                    int totalIntervals = (int)(totalLength / interval);
+
+                    if (totalIntervals == 0 && totalLength >= interval) // handles case where only one label might be placed if totalLength is slightly >= interval
+                    {
+                        totalIntervals = 1;
+                    }
+                    else if (totalIntervals == 0)
+                    {
+                        ed.WriteMessage("\nThe polyline is too short for any interval markings.");
+                        transaction.Abort();
+                        return;
+                    }
+
+
                     if (totalIntervals > 1000)
                     {
                         PromptKeywordOptions confirmOptions = new PromptKeywordOptions("\nMore than 1000 numbers will be drawn. Continue? [Yes/No]: ", "Yes No")
@@ -350,118 +366,113 @@ namespace AutocadPlugin
                         if (confirmResult.Status != PromptStatus.OK || confirmResult.StringResult.Equals("No", StringComparison.OrdinalIgnoreCase))
                         {
                             ed.WriteMessage("\nOperation cancelled.");
+                            transaction.Abort();
                             return;
                         }
                     }
 
-                    // Loop from the first interval until the end of the polyline
-                    while (nextIntervalDistance <= totalLength)
+                    for (int k = 0; k < totalIntervals; k++, nextIntervalDistance += interval)
                     {
-                        double cumulativeDistance = 0;
-                        // Iterate through each segment of the polyline
-                        for (int i = 0; i < polyline.NumberOfVertices - 1; i++)
+                        // It's possible nextIntervalDistance might slightly exceed totalLength due to floating point arithmetic,
+                        // especially for the last interval. Clamp it to totalLength if that's the case,
+                        // or ensure the loop condition handles it (e.g. k < totalIntervals or nextIntervalDistance <= totalLength + tolerance)
+                        if (nextIntervalDistance > totalLength + 1e-6) // Add small tolerance
+                            break;
+
+
+                        // The GetPointAtDist and GetFirstDerivative methods are simpler for getting point and tangent
+                        Point3d position = polyline.GetPointAtDist(nextIntervalDistance);
+                        Vector3d tangent3d = polyline.GetFirstDerivative(polyline.GetParameterAtDistance(nextIntervalDistance));
+
+                        // We need the tangent in the XY plane for text rotation and 2D offset
+                        Vector3d tangent = new Vector3d(tangent3d.X, tangent3d.Y, 0.0).GetNormal();
+
+                        // If tangent has zero length in XY (e.g., vertical line segment in 3D polyline),
+                        // Atan2(0,0) is 0. Default to X-axis direction for such cases if needed,
+                        // but GetFirstDerivative should give a non-zero vector if the point is on the curve.
+                        // If the polyline segment itself is vertical (dx=0, dy=0, dz!=0), tangent.X and tangent.Y will be 0.
+                        // Rotation will be 0, which is standard for text on vertical lines (horizontal text).
+                        if (tangent.IsZeroLength()) // Should not happen if point is valid on curve
                         {
-                            // Calculate current segment length
-                            Point3d pt1 = polyline.GetPoint3dAt(i);
-                            Point3d pt2 = polyline.GetPoint3dAt(i + 1);
-                            double segLength = pt1.DistanceTo(pt2);
-                            double segmentArcLength = segLength; // default for straight segments
-
-                            // Check if the segment is an arc (nonzero bulge)
-                            double bulge = polyline.GetBulgeAt(i);
-                            if (bulge != 0)
+                            // Fallback or skip, though GetFirstDerivative should be valid
+                            // For a purely vertical segment (in Z), tangent X and Y would be 0.
+                            // Defaulting to a horizontal tangent for rotation purposes:
+                            if (polyline.NumberOfVertices > 1)
                             {
-                                // Compute arc properties.
-                                // The arc angle is 4 * atan(bulge)
-                                double arcAngle = 4 * Math.Atan(bulge);
-                                // The chord length is the straight segment length between pt1 and pt2.
-                                double chordLength = segLength;
-                                // Compute the radius of the arc.
-                                double radius = chordLength / (2 * Math.Sin(Math.Abs(arcAngle) / 2));
-                                // Total arc length is |arcAngle| * radius.
-                                segmentArcLength = Math.Abs(arcAngle) * Math.Abs(radius);
+                                Point3d ptStart = polyline.StartPoint;
+                                Point3d ptNext = polyline.GetPoint3dAt(1);
+                                if (Math.Abs(ptStart.X - ptNext.X) < 1e-9 && Math.Abs(ptStart.Y - ptNext.Y) < 1e-9)
+                                {
+                                    tangent = Vector3d.XAxis; // Default for purely Z-axis lines
+                                }
+                                else // Use overall polyline direction if specific segment is vertical
+                                {
+                                    tangent = (polyline.EndPoint - polyline.StartPoint);
+                                    if (tangent.Length > 1e-9)
+                                    {
+                                        tangent = new Vector3d(tangent.X, tangent.Y, 0.0).GetNormal();
+                                        if (tangent.IsZeroLength()) tangent = Vector3d.XAxis;
+                                    }
+                                    else
+                                    {
+                                        tangent = Vector3d.XAxis;
+                                    }
+                                }
                             }
-
-                            // Check if next interval is on the current segment/arc
-                            if (cumulativeDistance + segmentArcLength >= nextIntervalDistance)
+                            else
                             {
-                                Point3d position;
-                                Vector3d tangent;
-
-                                if (bulge == 0)
-                                {
-                                    // Linear interpolation for straight segment.
-                                    double fraction = (nextIntervalDistance - cumulativeDistance) / segLength;
-                                    position = new Point3d(
-                                        pt1.X + (pt2.X - pt1.X) * fraction,
-                                        pt1.Y + (pt2.Y - pt1.Y) * fraction,
-                                        pt1.Z + (pt2.Z - pt1.Z) * fraction
-                                    );
-                                    tangent = (pt2 - pt1).GetNormal();
-                                }
-                                else
-                                {
-                                    // Interpolate along the arc.
-                                    double arcAngle = 4 * Math.Atan(bulge);
-                                    double chordLength = pt1.DistanceTo(pt2);
-                                    // Compute radius 
-                                    double radius = chordLength / (2 * Math.Sin(Math.Abs(arcAngle) / 2));
-                                    // Calculate chord mid-point.
-                                    Point3d midPoint = new Point3d(
-                                        (pt1.X + pt2.X) / 2,
-                                        (pt1.Y + pt2.Y) / 2,
-                                        (pt1.Z + pt2.Z) / 2
-                                    );
-                                    // Determine the perpendicular direction (from pt1 to pt2) for finding the arc center.
-                                    Vector3d chordDir = (pt2 - pt1).GetNormal();
-                                    Vector3d perp;
-                                    // According to AutoCAD conventions, a positive bulge means the arc is drawn counterclockwise from pt1 to pt2.
-                                    perp = bulge > 0 ? chordDir.RotateBy(Math.PI / 2, Vector3d.ZAxis) : chordDir.RotateBy(-Math.PI / 2, Vector3d.ZAxis);
-                                    // Distance from chord midpoint to arc center.
-                                    double centerDist = (chordLength / 2) / Math.Tan(Math.Abs(arcAngle) / 2);
-                                    Point3d center = midPoint + perp * centerDist;
-
-                                    // Determine the fraction along the arc.
-                                    double fraction = (nextIntervalDistance - cumulativeDistance) / (Math.Abs(arcAngle) * Math.Abs(radius));
-                                    // Starting angle (from center to pt1).
-                                    double startAngle = new Vector2d(pt1.X - center.X, pt1.Y - center.Y).Angle;
-                                    // Target angle along the arc.
-                                    double targetAngle = startAngle + fraction * arcAngle;
-                                    // Interpolate Z linearly.
-                                    double z = pt1.Z + fraction * (pt2.Z - pt1.Z);
-                                    // Compute the interpolated point along the arc.
-                                    position = new Point3d(
-                                        center.X + Math.Abs(radius) * Math.Cos(targetAngle),
-                                        center.Y + Math.Abs(radius) * Math.Sin(targetAngle),
-                                        z
-                                    );
-                                    // Compute the tangent at the interpolated point.
-                                    tangent = new Vector3d(-Math.Sin(targetAngle), Math.Cos(targetAngle), 0);
-                                }
-
-                                // For both arc and straight segment, offset the computed position perpendicularly
-                                double offsetAngle = side.Equals("Left", StringComparison.OrdinalIgnoreCase) ? Math.PI / 2 : -Math.PI / 2;
-                                Vector3d offsetDir = tangent.RotateBy(offsetAngle, Vector3d.ZAxis);
-                                Point3d textPosition = position + (offsetDir * offsetDistance);
-
-                                // Create the DBText entity for the annotation
-                                DBText lineTypeText = new DBText
-                                {
-                                    Position = textPosition,
-                                    TextString = $"{text}",
-                                    Height = textHeight,
-                                    TextStyleId = textStyleId
-                                };
-
-                                modelSpace.AppendEntity(lineTypeText);
-                                transaction.AddNewlyCreatedDBObject(lineTypeText, true);
-
-                                // Interval found; break out of the segment loop.
-                                break;
+                                tangent = Vector3d.XAxis; // Default tangent if polyline is just a point
                             }
-                            cumulativeDistance += segmentArcLength;
                         }
-                        nextIntervalDistance += interval;
+
+                        double rotationAngle = Math.Atan2(tangent.Y, tangent.X);
+
+                        // Normalize angle to [0, 2*PI)
+                        double normalizedAngle = rotationAngle;
+                        while (normalizedAngle < 0)
+                        {
+                            normalizedAngle += 2 * Math.PI;
+                        }
+                        while (normalizedAngle >= 2 * Math.PI)
+                        {
+                            normalizedAngle -= 2 * Math.PI;
+                        }
+
+                        // Define the bounds for flipping (180 +/- 60 degrees, so 120 to 240 degrees)
+                        // (PI +/- PI/3) which is (2*PI/3) to (4*PI/3)
+                        double lowerFlipBound = (2.0 * Math.PI) / 3.0; // 120 degrees
+                        double upperFlipBound = (4.0 * Math.PI) / 3.0; // 240 degrees
+
+                        // If the text is oriented in the "upside down" range, flip it by 180 degrees (PI radians)
+                        if (normalizedAngle > lowerFlipBound && normalizedAngle < upperFlipBound)
+                        {
+                            rotationAngle += Math.PI;
+                        }
+
+                        double offsetAngle = side.Equals("Left", StringComparison.OrdinalIgnoreCase) ? Math.PI / 2 : -Math.PI / 2;
+                        // Offset direction should be perpendicular to the XY tangent, in the XY plane.
+                        Vector3d offsetDir = tangent.RotateBy(offsetAngle, Vector3d.ZAxis); // ZAxis ensures XY plane rotation
+
+                        // Text position is offset from the 3D point on the polyline, in the XY direction relative to the point
+                        Point3d textPosition = position + offsetDir * offsetDistance;
+
+
+                        DBText lineTypeText = new DBText
+                        {
+                            Position = textPosition,
+                            TextString = text,
+                            Height = textHeight,
+                            TextStyleId = textStyleId,
+                            Rotation = rotationAngle,
+                            HorizontalMode = TextHorizontalMode.TextCenter, // Optional: Center text on position
+                            VerticalMode = TextVerticalMode.TextVerticalMid,   // Optional: Center text on position
+                            AlignmentPoint = textPosition // Optional: Use with Horizontal/Vertical mode
+                        };
+                        // If using AlignmentPoint, Position should be set to AlignmentPoint OR (0,0,0) if text is in its own UCS.
+                        // For simplicity, if centering, set Position = textPosition and also AlignmentPoint = textPosition.
+
+                        modelSpace.AppendEntity(lineTypeText);
+                        transaction.AddNewlyCreatedDBObject(lineTypeText, true);
                     }
                     transaction.Commit();
                 }

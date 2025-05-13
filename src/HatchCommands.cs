@@ -58,11 +58,11 @@ namespace AutocadPlugin
                     }
 
                     // Promt the user to specify offset distance
-                    PromptDoubleOptions offsetOptions = new PromptDoubleOptions("\nSpecify offset distance: ")
+                    PromptDoubleOptions offsetOptions = new PromptDoubleOptions("\nSpecify hatch width: ")
                     {
                         AllowNegative = false,
                         AllowZero = false,
-                        DefaultValue = 0.5
+                        DefaultValue = 1
                     };
                     PromptDoubleResult offsetResult = editor.GetDouble(offsetOptions);
                     if (offsetResult.Status != PromptStatus.OK)
@@ -70,7 +70,7 @@ namespace AutocadPlugin
                         editor.WriteMessage("\nOperation canceled or invalid offset distance.");
                         return;
                     }
-                    double offsetDistance = offsetResult.Value;
+                    double offsetDistance = offsetResult.Value / 2;
 
 
 

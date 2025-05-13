@@ -126,6 +126,9 @@
   <data name="AnnotateRoadLinesCheckBox" xml:space="preserve">
     <value>Add Numbers To Road Lines</value>
   </data>
+  <data name="BrowseButton" xml:space="preserve">
+    <value>Browse...</value>
+  </data>
   <data name="ConvertLineButton" xml:space="preserve">
     <value>Convert To Road Line</value>
   </data>
@@ -147,6 +150,12 @@
   <data name="LanguageComboBox" xml:space="preserve">
     <value>Select Language: </value>
   </data>
+  <data name="LinetypePathTextBoxLabel" xml:space="preserve">
+    <value>Linetype File</value>
+  </data>
+  <data name="LineWidthPathTextBoxLabel" xml:space="preserve">
+    <value>Line Width File: </value>
+  </data>
   <data name="RoadMarkingsCategory" xml:space="preserve">
     <value>Road Markings</value>
   </data>
@@ -155,6 +164,9 @@
   </data>
   <data name="SignScaleTextBox" xml:space="preserve">
     <value>Sign Scale:</value>
+  </data>
+  <data name="StreetSignPathTextBoxLabel" xml:space="preserve">
+    <value>Street Sign Catalogue:</value>
   </data>
   <data name="StreetSignsCategory" xml:space="preserve">
     <value>Street Signs</value>

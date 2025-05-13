@@ -88,6 +88,15 @@ namespace AutocadPlugin.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Browse....
+        /// </summary>
+        public static string BrowseButton {
+            get {
+                return ResourceManager.GetString("BrowseButton", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Convert To Road Line.
         /// </summary>
         public static string ConvertLineButton {
@@ -151,6 +160,24 @@ namespace AutocadPlugin.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Linetype File.
+        /// </summary>
+        public static string LinetypePathTextBoxLabel {
+            get {
+                return ResourceManager.GetString("LinetypePathTextBoxLabel", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Line Width File: .
+        /// </summary>
+        public static string LineWidthPathTextBoxLabel {
+            get {
+                return ResourceManager.GetString("LineWidthPathTextBoxLabel", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Road Markings.
         /// </summary>
         public static string RoadMarkingsCategory {
@@ -174,6 +201,15 @@ namespace AutocadPlugin.Resources {
         public static string SignScaleTextBox {
             get {
                 return ResourceManager.GetString("SignScaleTextBox", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Street Sign Catalogue:.
+        /// </summary>
+        public static string StreetSignPathTextBoxLabel {
+            get {
+                return ResourceManager.GetString("StreetSignPathTextBoxLabel", resourceCulture);
             }
         }
         

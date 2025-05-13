@@ -12,11 +12,14 @@ namespace AutocadPlugin
         {
             InitializeComponent();
 
-            RoadMarkingCommands.LoadLinetypes(@"C:\Users\JAABUK\Desktop\prog\EESTI\jooned.lin");
+            string lineTypeFilePath = AutocadPlugin.Properties.Settings.Default.LineTypeFilePath;
+            string lineWidthFilePath = AutocadPlugin.Properties.Settings.Default.LineWidthFilePath;
 
-            RoadMarkingCommands.LoadLineWidths(@"C:\Users\JAABUK\Desktop\prog\EESTI\jooned_paksused.txt");
+            RoadMarkingCommands.LoadLinetypes(lineTypeFilePath);
 
-            PopulateLineTypeComboBox(@"C:\Users\JAABUK\Desktop\prog\EESTI\jooned.lin");
+            RoadMarkingCommands.LoadLineWidths(lineWidthFilePath);
+
+            PopulateLineTypeComboBox(lineTypeFilePath);
         }
 
         private void DrawLineButton_Click(object sender, RoutedEventArgs e)

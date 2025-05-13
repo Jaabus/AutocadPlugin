@@ -126,6 +126,9 @@
   <data name="AnnotateRoadLinesCheckBox" xml:space="preserve">
     <value>Lisa Teekattejoontele Numbrimärgised</value>
   </data>
+  <data name="BrowseButton" xml:space="preserve">
+    <value>Sirvi...</value>
+  </data>
   <data name="ConvertLineButton" xml:space="preserve">
     <value>Teisenda Teekattejooneks</value>
   </data>
@@ -147,6 +150,12 @@
   <data name="LanguageComboBox" xml:space="preserve">
     <value>Vali Keel: </value>
   </data>
+  <data name="LinetypePathTextBoxLabel" xml:space="preserve">
+    <value>Joonetüüpide fail: </value>
+  </data>
+  <data name="LineWidthPathTextBoxLabel" xml:space="preserve">
+    <value>Joonepaksuste fail: </value>
+  </data>
   <data name="RoadMarkingsCategory" xml:space="preserve">
     <value>Teekattemärgised</value>
   </data>
@@ -155,6 +164,9 @@
   </data>
   <data name="SignScaleTextBox" xml:space="preserve">
     <value>Liiklusmärgi skaala:</value>
+  </data>
+  <data name="StreetSignPathTextBoxLabel" xml:space="preserve">
+    <value>Liiklusmärkide kataloog: </value>
   </data>
   <data name="StreetSignsCategory" xml:space="preserve">
     <value>Liiklusmärgid</value>

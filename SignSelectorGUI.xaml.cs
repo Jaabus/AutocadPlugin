@@ -19,8 +19,7 @@ namespace AutocadPlugin
         {
             InitializeComponent();
 
-            // Set the initial directory path, later i should get it from the user
-            string signDirectoryPath = @"C:\Users\JAABUK\Desktop\prog\EESTI";
+            string signDirectoryPath = AutocadPlugin.Properties.Settings.Default.StreetSignFilePath;
 
             // Check if the directory exists
             if (Directory.Exists(signDirectoryPath))

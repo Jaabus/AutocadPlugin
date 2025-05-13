@@ -5,6 +5,9 @@ using Autodesk.AutoCAD.Windows;
 using Autodesk.AutoCAD.EditorInput;
 using Autodesk.AutoCAD.ApplicationServices;
 using WF = System.Windows.Forms;
+using System.Globalization;
+using System.Threading;
+using System.Windows.Controls;
 
 namespace AutocadPlugin
 {
@@ -15,6 +18,9 @@ namespace AutocadPlugin
         [CommandMethod("RD_DrawGUI")]
         public static void DrawGUI()
         {
+
+            ApplySavedLanguage();
+
             if (_paletteSet == null)
             {
                 // Create a new PaletteSet
@@ -121,6 +127,26 @@ namespace AutocadPlugin
                     transaction.Commit();
                 }
             }
+        }
+
+        public static void ApplySavedLanguage()
+        {
+                string savedCultureName = AutocadPlugin.Properties.Settings.Default.SelectedLanguageCultureName;
+
+                if (!string.IsNullOrEmpty(savedCultureName))
+                {
+                    // Create a CultureInfo object from the saved name
+                    CultureInfo culture = new CultureInfo(savedCultureName);
+
+                    // Set the UI culture for the current thread
+                    Thread.CurrentThread.CurrentUICulture = culture;
+
+                }
+                else
+                {
+                    Thread.CurrentThread.CurrentUICulture = new CultureInfo("en");
+                    System.Diagnostics.Debug.WriteLine("No saved language found, defaulting to English.");
+                }
         }
     }
 }

@@ -1,5 +1,6 @@
 /bin
 /obj
-/Properties
 App.config
 plugin_start_script.scr
+Properties/Settings.Designer.cs
+Properties/launchSettings.json

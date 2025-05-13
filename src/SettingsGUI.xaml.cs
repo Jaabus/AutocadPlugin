@@ -68,7 +68,6 @@ namespace AutocadPlugin
 
             // Load Language Preference
             string savedCultureName = AutocadPlugin.Properties.Settings.Default.SelectedLanguageCultureName;
-            bool languageSet = false;
             if (!string.IsNullOrEmpty(savedCultureName))
             {
                 foreach (ComboBoxItem item in LanguageComboBox.Items)
@@ -78,7 +77,6 @@ namespace AutocadPlugin
                         LanguageComboBox.SelectedItem = item;
                         // Apply the culture immediately if found
                         Thread.CurrentThread.CurrentUICulture = new CultureInfo(savedCultureName);
-                        languageSet = true;
                         break;
                     }
                 }

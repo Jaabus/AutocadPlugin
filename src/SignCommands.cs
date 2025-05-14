@@ -55,8 +55,22 @@ namespace AutocadPlugin
                 return;
             }
 
-            // Load the sign post block for preview
-            string signPostPath = @"C:\Users\JAABUK\Desktop\prog\EESTI\Märkide elemendid\Silt.dwg";
+            // Get the base path from settings and build the sign post path
+            string basePath = AutocadPlugin.Properties.Settings.Default.StreetSignFilePath;
+            // Ensure the path ends with a directory separator
+            if (!basePath.EndsWith(System.IO.Path.DirectorySeparatorChar.ToString()))
+                basePath += System.IO.Path.DirectorySeparatorChar;
+            // Append the relative path to the sign post DWG
+            string signPostPath = System.IO.Path.Combine(basePath, "Märkide elemendid", "Silt.dwg");
+
+            // Check if the file exists before proceeding
+            if (!System.IO.File.Exists(signPostPath))
+            {
+                editor.WriteMessage($"\nSign post file not found: {signPostPath}");
+                Autodesk.AutoCAD.ApplicationServices.Application.ShowAlertDialog($"Sign post file not found:\n{signPostPath}");
+                return;
+            }
+
             ObjectId signPostDefId = LoadBlockDefinition(transaction, targetDb, signPostPath);
 
             // Create a transient graphics preview of the sign post

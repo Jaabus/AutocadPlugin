@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.DatabaseServices;
@@ -13,6 +14,7 @@ namespace AutocadPlugin
 {
     internal class SignCommands
     {
+
         public static void InsertSignButton(string signPath)
         {
             // Get the current document, its editor database
@@ -47,94 +49,204 @@ namespace AutocadPlugin
             }
         }
 
-        private static void InsertSignPostAndSign(Transaction transaction, string signPath, Editor editor, Database targetDb)
+        public static void InsertSignPostAndSign(Transaction transaction, string signDwgPath, Editor editor, Database targetDb)
         {
             // Prompt user to specify a location for a new sign post
             if (!TryPromptPoint(editor, new PromptPointOptions("\nSpecify location for the new sign post:"), out Point3d signPostLocation))
             {
+                editor.WriteMessage("\nSign post location not specified. Operation cancelled.");
                 return;
             }
 
-            // Get the base path from settings and build the sign post path
             string basePath = AutocadPlugin.Properties.Settings.Default.StreetSignFilePath;
-            // Ensure the path ends with a directory separator
-            if (!basePath.EndsWith(System.IO.Path.DirectorySeparatorChar.ToString()))
-                basePath += System.IO.Path.DirectorySeparatorChar;
-            // Append the relative path to the sign post DWG
-            string signPostPath = System.IO.Path.Combine(basePath, "Märkide elemendid", "Silt.dwg");
-
-            // Check if the file exists before proceeding
-            if (!System.IO.File.Exists(signPostPath))
+            if (string.IsNullOrEmpty(basePath))
             {
-                editor.WriteMessage($"\nSign post file not found: {signPostPath}");
-                Autodesk.AutoCAD.ApplicationServices.Application.ShowAlertDialog($"Sign post file not found:\n{signPostPath}");
+                editor.WriteMessage("\nStreetSignFilePath setting is not configured.");
+                return;
+            }
+            if (!basePath.EndsWith(Path.DirectorySeparatorChar.ToString()))
+                basePath += Path.DirectorySeparatorChar;
+            string signPostDwgPath = Path.Combine(basePath, "Märkide elemendid", "Silt.dwg"); // Path to the SIGN POST DWG
+
+            if (!File.Exists(signPostDwgPath))
+            {
+                editor.WriteMessage($"\nSign post DWG file not found: {signPostDwgPath}");
+                Application.ShowAlertDialog($"Sign post DWG file not found:\n{signPostDwgPath}");
+                return;
+            }
+            ObjectId signPostDefId = LoadBlockDefinition(transaction, targetDb, signPostDwgPath);
+            if (signPostDefId.IsNull)
+            {
+                editor.WriteMessage($"\nFailed to load sign post block definition: {signPostDwgPath}");
                 return;
             }
 
-            ObjectId signPostDefId = LoadBlockDefinition(transaction, targetDb, signPostPath);
-
-            // Create a transient graphics preview of the sign post
-            using (BlockReference previewBlock = new BlockReference(signPostLocation, signPostDefId))
+            // signDwgPath is for the SIGN itself (passed as argument). Check its existence.
+            if (!File.Exists(signDwgPath))
             {
-                previewBlock.ScaleFactors = new Scale3d(1.0); // Default scale
-                previewBlock.Rotation = 0; // Default rotation
+                editor.WriteMessage($"\nSign DWG file not found: {signDwgPath}");
+                Application.ShowAlertDialog($"Sign DWG file not found:\n{signDwgPath}");
+                return;
+            }
+            ObjectId signDefId = LoadBlockDefinition(transaction, targetDb, signDwgPath);
+            if (signDefId.IsNull)
+            {
+                editor.WriteMessage($"\nFailed to load sign block definition: {signDwgPath}");
+                return;
+            }
 
-                // Add the preview to transient graphics
-                TransientManager transientManager = TransientManager.CurrentTransientManager;
-                transientManager.AddTransient(previewBlock, TransientDrawingMode.DirectShortTerm, 128, new IntegerCollection());
+            TransientManager transientManager = TransientManager.CurrentTransientManager;
+            IntegerCollection mainTransientIntCol = new IntegerCollection();
 
-                try
+            using (BlockReference previewSignPost = new BlockReference(signPostLocation, signPostDefId))
+            {
+                // Initial setup for sign post preview
+                string initialPostScaleStr = RetrieveVariable(transaction, targetDb, "SignPostScale") ?? Constants.defaultSignPostScale;
+                double.TryParse(initialPostScaleStr, out double initialPostScale);
+                if (initialPostScale <= 0) initialPostScale = 1.0;
+
+                previewSignPost.ScaleFactors = new Scale3d(initialPostScale);
+                previewSignPost.Rotation = 0; // Default rotation
+                transientManager.AddTransient(previewSignPost, TransientDrawingMode.DirectShortTerm, 128, mainTransientIntCol);
+
+                double finalSignPostRotation = 0;
+                double finalSignPostScale = initialPostScale;
+                bool signPostParamsConfirmed = false;
+
+                try // This try-finally ensures previewSignPost transient is cleaned up
                 {
-                    // Prompt user to specify an angle for sign post rotation
-                    PromptAngleOptions promptSignPostRotationOptions = new PromptAngleOptions("\nSpecify rotation for the new sign post:")
+                    PromptAngleOptions pao = new PromptAngleOptions("\nSpecify rotation for the new sign post:")
                     {
                         DefaultValue = 0,
                         BasePoint = signPostLocation,
                         UseBasePoint = true,
                         UseDefaultValue = true,
                     };
+                    PromptDoubleResult angleResult = editor.GetAngle(pao);
 
-                    PromptDoubleResult angleResult = editor.GetAngle(promptSignPostRotationOptions);
                     if (angleResult.Status == PromptStatus.OK)
                     {
-                        double signPostRotation = angleResult.Value + (Math.PI / 2); // Adjust rotation by 90 degrees anticlockwise
-                        previewBlock.Rotation = signPostRotation;
+                        finalSignPostRotation = angleResult.Value + (Math.PI / 2); // Original 90-degree adjustment
+                        previewSignPost.Rotation = finalSignPostRotation;
 
-                        // Get sign post scale factor from user preferences
-                        string signPostScaleString = RetrieveVariable(transaction, targetDb, "SignPostScale");
-                        if (string.IsNullOrEmpty(signPostScaleString))
+                        // Re-fetch or confirm scale if it can change after rotation prompt or if user can input it
+                        string signPostScaleString = RetrieveVariable(transaction, targetDb, "SignPostScale") ?? Constants.defaultSignPostScale;
+                        if (!double.TryParse(signPostScaleString, out finalSignPostScale) || finalSignPostScale <= 0)
                         {
-                            signPostScaleString = Constants.defaultSignPostScale;
+                            finalSignPostScale = 1.0; // Fallback
+                            editor.WriteMessage($"\nWarning: Invalid SignPostScale. Using {finalSignPostScale}.");
                         }
-                        double signPostScale = Convert.ToDouble(signPostScaleString);
-                        previewBlock.ScaleFactors = new Scale3d(signPostScale);
+                        previewSignPost.ScaleFactors = new Scale3d(finalSignPostScale);
 
-                        // Insert the actual sign post block at the specified location
-                        (ObjectId signPostRefId, ObjectId _) = InsertBlockFromDWG(transaction, targetDb, signPostPath, signPostLocation, signPostRotation, signPostScale);
+                        transientManager.UpdateTransient(previewSignPost, mainTransientIntCol);
+                        signPostParamsConfirmed = true;
+                    }
+                    else
+                    {
+                        editor.WriteMessage("\nSign post rotation cancelled. Operation aborted.");
+                        return; // Exits method, finally for previewSignPost will run
+                    }
 
-                        AddSignPostToNOD(transaction, targetDb, signPostRefId);
-                        AttachSignPostErasedEvent(transaction, targetDb, signPostRefId);
-
-                        // Prompt user to specify a location for a new sign
-                        if (!TryPromptPoint(editor, new PromptPointOptions("\nSpecify location for the new sign:"), out Point3d signLocation))
+                    if (signPostParamsConfirmed)
+                    {
+                        double actualSignScale = 1.0; // Default scale for the sign
+                        string signScaleStr = RetrieveVariable(transaction, targetDb, "SignScale");
+                        if (!string.IsNullOrEmpty(signScaleStr))
                         {
-                            return;
+                            if (double.TryParse(signScaleStr, out double parsedScale) && parsedScale > 0)
+                                actualSignScale = parsedScale;
+                            else
+                                editor.WriteMessage($"\nWarning: Invalid value for SignScale setting: '{signScaleStr}'. Using default {actualSignScale}.");
                         }
 
-                        // Insert the sign
-                        ObjectId signRefId = InsertSign(transaction, signPath, targetDb, signLocation, signPostRotation);
+                        var signPreviewJig = new SignPreviewJig(
+                            transientManager,
+                            signDefId,
+                            previewSignPost.Position, // Line starts from the (transient) sign post's position
+                            finalSignPostRotation,    // Sign rotates with the post
+                            actualSignScale           // Scale of the sign block itself
+                        );
 
-                        // Add sign ObjectId to sign post's list of attached signs
-                        AddSignToSignPostMapping(transaction, signPostRefId, signRefId);
+                        PointMonitorEventHandler pointMonitorHandler = (s, e_pm) =>
+                        {
+                            if (e_pm.Context.PointComputed) // Ensure a valid point is computed
+                            {
+                                signPreviewJig.Update(e_pm.Context.ComputedPoint);
+                            }
+                        };
 
-                        // Connect sign to sign post with line
-                        ConnectSignToSignPost(transaction, signRefId, signPostRefId);
+                        PromptPointOptions signLocationPpo = new PromptPointOptions("\nSpecify location for the new sign:");
+                        // signLocationPpo.Keywords.Add("Cancel"); // Optional: allow keyword cancel
+
+                        Point3d finalSignLocation = Point3d.Origin;
+                        bool signLocationSelected = false;
+
+                        editor.PointMonitor += pointMonitorHandler;
+                        try
+                        {
+                            PromptPointResult pprSign = editor.GetPoint(signLocationPpo);
+                            if (pprSign.Status == PromptStatus.OK)
+                            {
+                                finalSignLocation = pprSign.Value;
+                                signLocationSelected = true;
+                            }
+                            else
+                            {
+                                editor.WriteMessage("\nSign location not specified or cancelled.");
+                            }
+                        }
+                        finally
+                        {
+                            editor.PointMonitor -= pointMonitorHandler; // Crucial: detach the monitor
+                            signPreviewJig.Erase(); // Clean up transient sign and line from the jig
+                        }
+
+                        if (signLocationSelected)
+                        {
+                            // Erase the sign post's preview as we are about to insert the real one
+                            transientManager.EraseTransient(previewSignPost, mainTransientIntCol);
+                            // previewSignPost is disposed by its 'using' statement at the end of this scope.
+
+                            // Insert the actual sign post
+                            (ObjectId signPostRefId, _) = InsertBlockFromDWG(transaction, targetDb, signPostDwgPath, signPostLocation, finalSignPostRotation, finalSignPostScale);
+                            if (signPostRefId.IsNull) { editor.WriteMessage("\nFailed to insert sign post."); return; }
+
+                            AddSignPostToNOD(transaction, targetDb, signPostRefId);
+                            AttachSignPostErasedEvent(transaction, targetDb, signPostRefId);
+
+                            // Insert the actual sign
+                            ObjectId signRefId = InsertSign(transaction, signDwgPath, targetDb, finalSignLocation, finalSignPostRotation);
+                            if (signRefId.IsNull) { editor.WriteMessage("\nFailed to insert sign."); return; }
+
+                            // Apply scale to the actual sign block if it's not the default (1.0)
+                            // Assuming InsertSign inserted it with scale 1.0 or its inherent scale.
+                            if (Math.Abs(actualSignScale - 1.0) > Tolerance.Global.EqualPoint) // Check if scaling is needed
+                            {
+                                using (BlockReference actualSignBr = transaction.GetObject(signRefId, OpenMode.ForWrite, false, true) as BlockReference)
+                                {
+                                    if (actualSignBr != null)
+                                    {
+                                        actualSignBr.ScaleFactors = new Scale3d(actualSignScale);
+                                    }
+                                }
+                            }
+
+                            AddSignToSignPostMapping(transaction, signPostRefId, signRefId);
+                            ConnectSignToSignPost(transaction, signRefId, signPostRefId);
+                            editor.WriteMessage("\nSign post and sign inserted successfully.");
+                        }
+                        else
+                        {
+                            editor.WriteMessage("\nSign insertion aborted as location was not selected.");
+                            // previewSignPost transient will be cleaned by its 'finally' block
+                        }
                     }
                 }
                 finally
                 {
-                    // Remove the transient preview
-                    transientManager.EraseTransient(previewBlock, new IntegerCollection());
+                    // This ensures the previewSignPost (transient sign post) is always cleaned up
+                    // if it hasn't been explicitly erased earlier.
+                    transientManager.EraseTransient(previewSignPost, mainTransientIntCol);
                 }
             }
         }
@@ -836,6 +948,65 @@ namespace AutocadPlugin
                     document.Editor.WriteMessage($"\nError creating layout: {ex.Message}");
                     document.Editor.WriteMessage($"\nStack trace: {ex.StackTrace}");
                 }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Helper class for managing transient graphics (sign and connecting line)
+    /// during interactive placement.
+    /// </summary>
+    internal class SignPreviewJig
+    {
+        public TransientManager Tm { get; }
+        public ObjectId SignBlockDefId { get; }
+        public Point3d SignPostPreviewLocation { get; }
+        public double SignRotation { get; }
+        public double SignScale { get; }
+
+        private BlockReference _transientSign = null;
+        private Line _transientLine = null;
+        private readonly IntegerCollection _intCol = new IntegerCollection();
+
+        public SignPreviewJig(TransientManager tm, ObjectId signBlockDefId, Point3d signPostPreviewLocation, double signRotation, double signScale)
+        {
+            Tm = tm;
+            SignBlockDefId = signBlockDefId;
+            SignPostPreviewLocation = signPostPreviewLocation;
+            SignRotation = signRotation;
+            SignScale = signScale;
+        }
+
+        public void Update(Point3d currentSignLocation)
+        {
+            Erase(); // Erase previous transients
+
+            // Create new transient sign preview
+            _transientSign = new BlockReference(currentSignLocation, SignBlockDefId);
+            _transientSign.Rotation = SignRotation;
+            _transientSign.ScaleFactors = new Scale3d(SignScale);
+
+            // Create new transient line preview
+            _transientLine = new Line(SignPostPreviewLocation, currentSignLocation);
+            _transientLine.ColorIndex = 2;
+
+            Tm.AddTransient(_transientSign, TransientDrawingMode.DirectShortTerm, 128, _intCol);
+            Tm.AddTransient(_transientLine, TransientDrawingMode.DirectShortTerm, 128, _intCol);
+        }
+
+        public void Erase()
+        {
+            if (_transientSign != null)
+            {
+                Tm.EraseTransient(_transientSign, _intCol);
+                _transientSign.Dispose();
+                _transientSign = null;
+            }
+            if (_transientLine != null)
+            {
+                Tm.EraseTransient(_transientLine, _intCol);
+                _transientLine.Dispose();
+                _transientLine = null;
             }
         }
     }
